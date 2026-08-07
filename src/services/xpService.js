@@ -6,7 +6,9 @@ const {
   XP_COOLDOWN,
   MIN_MESSAGE_LENGTH,
   DUPLICATE_COOLDOWN,
-  XP_PER_LEVEL,
+  MAX_LEVEL,
+  BASE_LEVEL_XP,
+  LEVEL_XP_INCREASE,
 } = require("../config/xpConfig");
 
 async function getOrCreateUser(message) {
@@ -38,6 +40,16 @@ async function getOrCreateUser(message) {
     });
 
     console.log(`Novo usuário criado: ${user.name}`);
+
+    return user;
+  }
+
+  // Atualiza o nível caso a fórmula tenha mudado.
+  const correctLevel = calculateLevel(user.xp);
+
+  if (user.level !== correctLevel) {
+    user.level = correctLevel;
+    await user.save();
   }
 
   return user;
@@ -54,10 +66,12 @@ function isValidXpMessage(message, user) {
 
   const text = message.text.trim();
 
+  // Comandos não dão XP.
   if (text.startsWith("/")) {
     return false;
   }
 
+  // Mensagens muito pequenas não dão XP.
   if (text.length < MIN_MESSAGE_LENGTH) {
     return false;
   }
@@ -97,8 +111,26 @@ function generateXp() {
   return randomNumber + XP_MIN;
 }
 
-function calculateLevel(xp) {
-  return Math.floor(xp / XP_PER_LEVEL) + 1;
+function getXpRequiredForNextLevel(level) {
+  return BASE_LEVEL_XP + (level - 1) * LEVEL_XP_INCREASE;
+}
+
+function calculateLevel(totalXp) {
+  let level = 1;
+  let accumulatedXp = 0;
+
+  while (level < MAX_LEVEL) {
+    const requiredXp = getXpRequiredForNextLevel(level);
+
+    if (totalXp < accumulatedXp + requiredXp) {
+      break;
+    }
+
+    accumulatedXp += requiredXp;
+    level += 1;
+  }
+
+  return level;
 }
 
 async function addXp(user, message) {
@@ -122,6 +154,7 @@ async function addXp(user, message) {
   return {
     xpGained: xpGained,
     leveledUp: leveledUp,
+    previousLevel: previousLevel,
   };
 }
 
@@ -130,6 +163,7 @@ module.exports = {
   isValidXpMessage,
   canGainXp,
   generateXp,
+  getXpRequiredForNextLevel,
   calculateLevel,
   addXp,
 };

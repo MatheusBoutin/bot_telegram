@@ -3,6 +3,8 @@ const { telegramRequest } = require("../telegram");
 const { profileCommand } = require("../commands/profileCommand");
 const { rankCommand } = require("../commands/rankCommand");
 
+const { getTitle } = require("../services/titleService");
+
 const {
   getOrCreateUser,
   isValidXpMessage,
@@ -66,10 +68,19 @@ async function handleMessage(message) {
   console.log(`${user.name} ganhou ${result.xpGained} XP. Total: ${user.xp}`);
 
   if (result.leveledUp) {
+    const oldTitle = getTitle(result.previousLevel);
+    const newTitle = getTitle(user.level);
+
+    let levelUpMessage =
+      `🎉 ${user.name} subiu de nível!\n\n` + `⭐ Novo nível: ${user.level}`;
+
+    if (oldTitle !== newTitle) {
+      levelUpMessage += `\n\n🏷️ Novo título desbloqueado:\n` + `${newTitle}`;
+    }
+
     await telegramRequest("sendMessage", {
       chat_id: message.chat.id,
-      text:
-        `🎉 ${user.name} subiu de nível!\n\n` + `⭐ Novo nível: ${user.level}`,
+      text: levelUpMessage,
     });
   }
 }

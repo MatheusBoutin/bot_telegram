@@ -1,8 +1,8 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../database");
 
-const User = sequelize.define(
-  "User",
+const ClubMember = sequelize.define(
+  "ClubMember",
   {
     id: {
       type: DataTypes.INTEGER,
@@ -11,19 +11,14 @@ const User = sequelize.define(
       autoIncrement: true,
     },
 
-    telegramId: {
-      type: DataTypes.BIGINT,
-      allowNull: false,
-      unique: true,
-    },
-    name: {
-      type: DataTypes.STRING,
+    userId: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
 
-    username: {
-      type: DataTypes.STRING,
-      allowNull: true,
+    clubId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
 
     xp: {
@@ -63,10 +58,18 @@ const User = sequelize.define(
     },
   },
   {
-    tableName: "users",
+    tableName: "club_members",
+
+    indexes: [
+      {
+        unique: true,
+        fields: ["userId", "clubId"],
+        name: "club_members_user_club_unique",
+      },
+    ],
   },
 );
 
 module.exports = {
-  User,
+  ClubMember,
 };

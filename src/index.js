@@ -1,15 +1,39 @@
-const { telegramRequest } = require("./telegram.js");
-const { handleMessage } = require("./handlers/messageHandler.js");
-const { sequelize } = require("./database/database.js");
+const { telegramRequest } = require("./telegram");
+const { handleMessage } = require("./handlers/messageHandler");
+const { sequelize } = require("./database/models");
+
+async function ensureDatabaseIsMigrated() {
+  const requiredTables = ["users", "clubs", "club_members"];
+
+  const tables = await sequelize.getQueryInterface().showAllTables();
+
+  const tableNames = tables.map((table) => {
+    if (typeof table === "string") {
+      return table;
+    }
+
+    return table.tableName;
+  });
+
+  const missingTables = requiredTables.filter(
+    (tableName) => !tableNames.includes(tableName),
+  );
+
+  if (missingTables.length > 0) {
+    throw new Error(
+      "Banco não migrado. Execute npm run db:migrate antes de iniciar o bot.",
+    );
+  }
+}
 
 async function main() {
   await sequelize.authenticate();
 
   console.log("Banco de dados conectado.");
 
-  await sequelize.sync();
+  await ensureDatabaseIsMigrated();
 
-  console.log("Tabelas carregadas.");
+  console.log("Migrations carregadas.");
 
   let offset = 0;
 
@@ -23,6 +47,7 @@ async function main() {
 
     if (!Array.isArray(updates)) {
       console.log("O Telegram não retornou uma lista de atualizações.");
+
       continue;
     }
 

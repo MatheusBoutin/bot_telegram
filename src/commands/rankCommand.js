@@ -1,8 +1,20 @@
-const { User } = require("../database/models/User");
+const { ClubMember, User } = require("../database/models");
 const { telegramRequest } = require("../telegram");
 
-async function rankCommand(message) {
-  const ranking = await User.findAll({
+async function rankCommand(message, club) {
+  const ranking = await ClubMember.findAll({
+    where: {
+      clubId: club.id,
+    },
+
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["id", "name", "username"],
+      },
+    ],
+
     order: [["xp", "DESC"]],
     limit: 10,
   });
@@ -19,7 +31,7 @@ async function rankCommand(message) {
   let rankingMessage = "🏆 Ranking do Clube\n\n";
 
   for (let index = 0; index < ranking.length; index++) {
-    const user = ranking[index];
+    const member = ranking[index];
 
     let position = `${index + 1}.`;
 
@@ -36,9 +48,9 @@ async function rankCommand(message) {
     }
 
     rankingMessage +=
-      `${position} ${user.name}` +
-      ` — Nível ${user.level}` +
-      ` — ${user.xp} XP\n`;
+      `${position} ${member.user.name}` +
+      ` — Nível ${member.level}` +
+      ` — ${member.xp} XP\n`;
   }
 
   await telegramRequest("sendMessage", {

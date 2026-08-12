@@ -1,5 +1,7 @@
 const https = require("node:https");
 
+const { TELEGRAM_REQUEST_TIMEOUT_MS } = require("./config/pollingConfig");
+
 require("dotenv").config({
   quiet: true,
 });
@@ -8,6 +10,30 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 
 if (!token) {
   throw new Error("O token do Telegram não foi encontrado no arquivo .env.");
+}
+
+function createTelegramError(data, method, statusCode) {
+  let errorMessage = `Erro ao executar o método ${method}.`;
+
+  if (data && data.description) {
+    errorMessage = data.description;
+  }
+
+  const error = new Error(errorMessage);
+
+  if (data && data.error_code) {
+    error.code = data.error_code;
+  } else if (statusCode) {
+    error.code = statusCode;
+  }
+
+  const retryAfterSeconds = Number(data?.parameters?.retry_after);
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    error.retryAfterMs = retryAfterSeconds * 1000;
+  }
+
+  return error;
 }
 
 function telegramRequest(method, body = null) {
@@ -26,10 +52,12 @@ function telegramRequest(method, body = null) {
       path: `/bot${token}/${method}`,
       method: httpMethod,
 
-      // Sua rede precisou utilizar IPv4.
+      // Mantemos IPv4 porque sua rede precisou disso.
       family: 4,
 
-      headers: {},
+      headers: {
+        Accept: "application/json",
+      },
     };
 
     if (requestBody) {
@@ -47,29 +75,32 @@ function telegramRequest(method, body = null) {
         responseBody += chunk;
       });
 
+      response.on("aborted", () => {
+        reject(new Error("A conexão com o Telegram foi interrompida."));
+      });
+
+      response.on("error", (error) => {
+        reject(error);
+      });
+
       response.on("end", () => {
         let data;
 
         try {
           data = JSON.parse(responseBody);
         } catch (error) {
-          reject(
-            new Error(
-              "O Telegram retornou uma resposta que não está no formato JSON.",
-            ),
+          const invalidResponseError = new Error(
+            "O Telegram retornou uma resposta que não está no formato JSON.",
           );
 
+          invalidResponseError.code = response.statusCode;
+
+          reject(invalidResponseError);
           return;
         }
 
-        if (!data.ok) {
-          let errorMessage = `Erro ao executar o método ${method}.`;
-
-          if (data.description) {
-            errorMessage = data.description;
-          }
-
-          reject(new Error(errorMessage));
+        if (!data || data.ok !== true) {
+          reject(createTelegramError(data, method, response.statusCode));
 
           return;
         }
@@ -78,9 +109,9 @@ function telegramRequest(method, body = null) {
       });
     });
 
-    request.setTimeout(15000, () => {
+    request.setTimeout(TELEGRAM_REQUEST_TIMEOUT_MS, () => {
       request.destroy(
-        new Error("A conexão com a API do Telegram excedeu 15 segundos."),
+        new Error("A conexão com a API do Telegram excedeu o tempo limite."),
       );
     });
 

@@ -1,5 +1,3 @@
-const { User } = require("../database/models/User");
-
 const {
   XP_MIN,
   XP_MAX,
@@ -11,51 +9,7 @@ const {
   LEVEL_XP_INCREASE,
 } = require("../config/xpConfig");
 
-async function getOrCreateUser(message) {
-  const telegramId = message.from.id;
-
-  let user = await User.findOne({
-    where: {
-      telegramId: telegramId,
-    },
-  });
-
-  if (!user) {
-    let username = null;
-
-    if (message.from.username) {
-      username = message.from.username;
-    }
-
-    user = await User.create({
-      telegramId: telegramId,
-      name: message.from.first_name,
-      username: username,
-      xp: 0,
-      level: 1,
-      messageCount: 0,
-      lastXpAt: 0,
-      lastMessage: "",
-      lastMessageAt: 0,
-    });
-
-    console.log(`Novo usuário criado: ${user.name}`);
-
-    return user;
-  }
-
-  // Atualiza o nível caso a fórmula tenha mudado.
-  const correctLevel = calculateLevel(user.xp);
-
-  if (user.level !== correctLevel) {
-    user.level = correctLevel;
-    await user.save();
-  }
-
-  return user;
-}
-
-function isValidXpMessage(message, user) {
+function isValidXpMessage(message, member) {
   if (!message.text) {
     return false;
   }
@@ -66,24 +20,21 @@ function isValidXpMessage(message, user) {
 
   const text = message.text.trim();
 
-  // Comandos não dão XP.
   if (text.startsWith("/")) {
     return false;
   }
 
-  // Mensagens muito pequenas não dão XP.
   if (text.length < MIN_MESSAGE_LENGTH) {
     return false;
   }
 
   const now = Date.now();
 
-  const lastMessage = user.lastMessage || "";
+  const lastMessage = member.lastMessage || "";
 
   const isSameMessage = text.toLowerCase() === lastMessage.toLowerCase();
 
-  const lastMessageAt = Number(user.lastMessageAt);
-
+  const lastMessageAt = Number(member.lastMessageAt);
   const timeSinceLastMessage = now - lastMessageAt;
 
   if (isSameMessage && timeSinceLastMessage < DUPLICATE_COOLDOWN) {
@@ -93,11 +44,9 @@ function isValidXpMessage(message, user) {
   return true;
 }
 
-function canGainXp(user) {
+function canGainXp(member) {
   const now = Date.now();
-
-  const lastXpAt = Number(user.lastXpAt);
-
+  const lastXpAt = Number(member.lastXpAt);
   const elapsedTime = now - lastXpAt;
 
   return elapsedTime >= XP_COOLDOWN;
@@ -105,7 +54,6 @@ function canGainXp(user) {
 
 function generateXp() {
   const possibleValues = XP_MAX - XP_MIN + 1;
-
   const randomNumber = Math.floor(Math.random() * possibleValues);
 
   return randomNumber + XP_MIN;
@@ -133,23 +81,22 @@ function calculateLevel(totalXp) {
   return level;
 }
 
-async function addXp(user, message) {
-  const previousLevel = user.level;
-
+async function addXp(member, message) {
+  const previousLevel = member.level;
   const xpGained = generateXp();
 
-  user.xp += xpGained;
-  user.messageCount += 1;
+  member.xp += xpGained;
+  member.messageCount += 1;
 
-  user.lastXpAt = Date.now();
-  user.lastMessage = message.text.trim();
-  user.lastMessageAt = Date.now();
+  member.lastXpAt = Date.now();
+  member.lastMessage = message.text.trim();
+  member.lastMessageAt = Date.now();
 
-  user.level = calculateLevel(user.xp);
+  member.level = calculateLevel(member.xp);
 
-  await user.save();
+  await member.save();
 
-  const leveledUp = user.level > previousLevel;
+  const leveledUp = member.level > previousLevel;
 
   return {
     xpGained: xpGained,
@@ -159,7 +106,6 @@ async function addXp(user, message) {
 }
 
 module.exports = {
-  getOrCreateUser,
   isValidXpMessage,
   canGainXp,
   generateXp,

@@ -4,13 +4,12 @@ const { profileCommand } = require("../commands/profileCommand");
 const { rankCommand } = require("../commands/rankCommand");
 
 const { getTitle } = require("../services/titleService");
+const { getOrCreateUser } = require("../services/userService");
+const { getOrCreateClub } = require("../services/clubService");
 
-const {
-  getOrCreateUser,
-  isValidXpMessage,
-  canGainXp,
-  addXp,
-} = require("../services/xpService");
+const { getOrCreateClubMember } = require("../services/clubMemberService");
+
+const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
 async function handleMessage(message) {
   if (!message.from) {
@@ -22,57 +21,44 @@ async function handleMessage(message) {
   }
 
   const user = await getOrCreateUser(message);
-
-  // =========================
-  // COMANDO /perfil
-  // =========================
+  const club = await getOrCreateClub(message);
+  const member = await getOrCreateClubMember(user, club);
 
   if (message.text === "/perfil") {
-    await profileCommand(message, user);
+    await profileCommand(message, user, member);
     return;
   }
-
-  // =========================
-  // COMANDO /rank
-  // =========================
 
   if (message.text === "/rank") {
-    await rankCommand(message);
+    await rankCommand(message, club);
     return;
   }
 
-  // =========================
-  // OUTROS COMANDOS
-  // =========================
-
-  if (message.text) {
-    if (message.text.startsWith("/")) {
-      return;
-    }
-  }
-
-  // =========================
-  // XP
-  // =========================
-
-  if (!isValidXpMessage(message, user)) {
+  if (message.text && message.text.startsWith("/")) {
     return;
   }
 
-  if (!canGainXp(user)) {
+  if (!isValidXpMessage(message, member)) {
     return;
   }
 
-  const result = await addXp(user, message);
+  if (!canGainXp(member)) {
+    return;
+  }
 
-  console.log(`${user.name} ganhou ${result.xpGained} XP. Total: ${user.xp}`);
+  const result = await addXp(member, message);
+
+  console.log(
+    `${user.name} ganhou ${result.xpGained} XP em ${club.name}. ` +
+      `Total: ${member.xp}`,
+  );
 
   if (result.leveledUp) {
     const oldTitle = getTitle(result.previousLevel);
-    const newTitle = getTitle(user.level);
+    const newTitle = getTitle(member.level);
 
     let levelUpMessage =
-      `🎉 ${user.name} subiu de nível!\n\n` + `⭐ Novo nível: ${user.level}`;
+      `🎉 ${user.name} subiu de nível!\n\n` + `⭐ Novo nível: ${member.level}`;
 
     if (oldTitle !== newTitle) {
       levelUpMessage += `\n\n🏷️ Novo título desbloqueado:\n` + `${newTitle}`;

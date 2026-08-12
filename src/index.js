@@ -1,6 +1,8 @@
-const { telegramRequest } = require("./telegram");
-const { handleMessage } = require("./handlers/messageHandler");
 const { sequelize } = require("./database/models");
+
+const { runPolling } = require("./services/pollingService");
+
+let isRunning = true;
 
 async function ensureDatabaseIsMigrated() {
   const requiredTables = ["users", "clubs", "club_members"];
@@ -26,7 +28,46 @@ async function ensureDatabaseIsMigrated() {
   }
 }
 
+function configureShutdownHandlers() {
+  function requestShutdown(signal) {
+    if (!isRunning) {
+      console.log("Encerramento forçado.");
+
+      process.exit(1);
+    }
+
+    isRunning = false;
+
+    console.log(`\nSinal ${signal} recebido.`);
+
+    console.log("Encerrando o bot com segurança...");
+  }
+
+  process.on("SIGINT", () => {
+    requestShutdown("SIGINT");
+  });
+
+  process.on("SIGTERM", () => {
+    requestShutdown("SIGTERM");
+  });
+}
+
+async function closeDatabase() {
+  try {
+    await sequelize.close();
+
+    console.log("Conexão com o banco encerrada.");
+  } catch (error) {
+    console.error(
+      "Não foi possível encerrar o banco corretamente:",
+      error.message,
+    );
+  }
+}
+
 async function main() {
+  configureShutdownHandlers();
+
   await sequelize.authenticate();
 
   console.log("Banco de dados conectado.");
@@ -35,36 +76,21 @@ async function main() {
 
   console.log("Migrations carregadas.");
 
-  let offset = 0;
+  await runPolling(() => isRunning);
 
-  console.log("Bot ligado e aguardando mensagens.");
+  await closeDatabase();
 
-  while (true) {
-    const updates = await telegramRequest("getUpdates", {
-      offset: offset,
-      timeout: 10,
-    });
-
-    if (!Array.isArray(updates)) {
-      console.log("O Telegram não retornou uma lista de atualizações.");
-
-      continue;
-    }
-
-    for (const update of updates) {
-      offset = update.update_id + 1;
-
-      if (update.message) {
-        await handleMessage(update.message);
-      }
-    }
-  }
+  console.log("Bot desligado.");
 }
 
-main().catch((error) => {
-  console.error("Erro:", error.message);
+main().catch(async (error) => {
+  console.error("Erro fatal ao iniciar o bot:", error.message);
 
   if (error.code) {
     console.error("Código:", error.code);
   }
+
+  await closeDatabase();
+
+  process.exitCode = 1;
 });

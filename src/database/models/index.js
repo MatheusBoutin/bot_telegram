@@ -1,8 +1,8 @@
 const { sequelize } = require("../database");
-
 const { User } = require("./User");
 const { Club } = require("./Club");
 const { ClubMember } = require("./ClubMember");
+const { XpTransaction } = require("./XpTransaction");
 
 User.hasMany(ClubMember, {
   foreignKey: "userId",
@@ -24,9 +24,50 @@ ClubMember.belongsTo(Club, {
   as: "club",
 });
 
+ClubMember.hasMany(XpTransaction, {
+  foreignKey: "clubMemberId",
+  as: "xpTransactions",
+});
+
+XpTransaction.belongsTo(ClubMember, {
+  foreignKey: "clubMemberId",
+  as: "member",
+});
+
+Club.hasMany(XpTransaction, {
+  foreignKey: "clubId",
+  as: "xpTransactions",
+});
+
+XpTransaction.belongsTo(Club, {
+  foreignKey: "clubId",
+  as: "club",
+});
+
+User.hasMany(XpTransaction, {
+  foreignKey: "adminUserId",
+  as: "performedXpTransactions",
+});
+
+XpTransaction.belongsTo(User, {
+  foreignKey: "adminUserId",
+  as: "admin",
+});
+
+XpTransaction.belongsTo(XpTransaction, {
+  foreignKey: "originalTransactionId",
+  as: "originalTransaction",
+});
+
+XpTransaction.hasOne(XpTransaction, {
+  foreignKey: "originalTransactionId",
+  as: "reversal",
+});
+
 module.exports = {
   sequelize,
   User,
   Club,
   ClubMember,
+  XpTransaction,
 };

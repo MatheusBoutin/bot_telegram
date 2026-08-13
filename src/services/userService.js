@@ -14,24 +14,24 @@ function getTelegramName(from) {
   return `Usuário ${from.id}`;
 }
 
-async function getOrCreateUser(message) {
-  const telegramId = String(message.from.id);
-  const name = getTelegramName(message.from);
-  const username = message.from.username || null;
+async function getOrCreateUserFromTelegramUser(telegramUser) {
+  const telegramId = String(telegramUser.id);
+  const name = getTelegramName(telegramUser);
+  const username = telegramUser.username || null;
 
   const [user, created] = await User.findOrCreate({
     where: {
-      telegramId: telegramId,
+      telegramId,
     },
-
     defaults: {
-      name: name,
-      username: username,
+      name,
+      username,
     },
   });
 
   if (created) {
     console.log(`Novo usuário criado: ${user.name}`);
+
     return user;
   }
 
@@ -54,6 +54,11 @@ async function getOrCreateUser(message) {
   return user;
 }
 
+async function getOrCreateUser(message) {
+  return getOrCreateUserFromTelegramUser(message.from);
+}
+
 module.exports = {
   getOrCreateUser,
+  getOrCreateUserFromTelegramUser,
 };

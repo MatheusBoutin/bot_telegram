@@ -1,15 +1,43 @@
 const { telegramRequest } = require("../telegram");
 
 const { profileCommand } = require("../commands/profileCommand");
+
 const { rankCommand } = require("../commands/rankCommand");
 
+const { grantXpCommand } = require("../commands/grantXpCommand");
+
+const { adjustXpCommand } = require("../commands/adjustXpCommand");
+
+const { xpHistoryCommand } = require("../commands/xpHistoryCommand");
+
+const { undoXpCommand } = require("../commands/undoXpCommand");
+
+const { adminHelpCommand } = require("../commands/adminHelpCommand.js");
+
+const { xpStatusCommand } = require("../commands/xpStatusCommand");
+
 const { getTitle } = require("../services/titleService");
+
 const { getOrCreateUser } = require("../services/userService");
+
 const { getOrCreateClub } = require("../services/clubService");
 
 const { getOrCreateClubMember } = require("../services/clubMemberService");
 
+const { getCommandName } = require("../services/commandService");
+
+const { ensureGroupAdmin } = require("../services/adminService");
+
 const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
+
+const adminCommands = new Set([
+  "/darxp",
+  "/ajustarxp",
+  "/historico",
+  "/desfazerxp",
+  "/comandosadm",
+  "/statusxp",
+]);
 
 async function handleMessage(message) {
   if (!message.from) {
@@ -22,21 +50,86 @@ async function handleMessage(message) {
 
   const user = await getOrCreateUser(message);
   const club = await getOrCreateClub(message);
+
   const member = await getOrCreateClubMember(user, club);
 
-  if (message.text === "/perfil") {
-    await profileCommand(message, user, member);
+  const commandName = getCommandName(message.text);
+
+  // =========================
+  // COMANDOS ADMINISTRATIVOS
+  // =========================
+
+  if (adminCommands.has(commandName)) {
+    const userIsAdmin = await ensureGroupAdmin(message);
+
+    if (!userIsAdmin) {
+      return;
+    }
+
+    if (commandName === "/darxp") {
+      await grantXpCommand(message, user, club);
+
+      return;
+    }
+
+    if (commandName === "/ajustarxp") {
+      await adjustXpCommand(message, user, club);
+
+      return;
+    }
+
+    if (commandName === "/historico") {
+      await xpHistoryCommand(message, club);
+
+      return;
+    }
+
+    if (commandName === "/desfazerxp") {
+      await undoXpCommand(message, user, club);
+
+      return;
+    }
+
+    if (commandName === "/comandosadm") {
+      await adminHelpCommand(message);
+
+      return;
+    }
+
+    if (commandName === "/statusxp") {
+      await xpStatusCommand(message, club);
+
+      return;
+    }
+  }
+
+  // =========================
+  // COMANDO /perfil
+  // =========================
+
+  if (commandName === "/perfil") {
+    await profileCommand(message, user, member, club);
+
     return;
   }
 
-  if (message.text === "/rank") {
+  // =========================
+  // COMANDO /rank
+  // =========================
+
+  if (commandName === "/rank") {
     await rankCommand(message, club);
+
     return;
   }
 
-  if (message.text && message.text.startsWith("/")) {
+  if (commandName) {
     return;
   }
+
+  // =========================
+  // XP AUTOMÁTICO
+  // =========================
 
   if (!isValidXpMessage(message, member)) {
     return;
@@ -49,12 +142,13 @@ async function handleMessage(message) {
   const result = await addXp(member, message);
 
   console.log(
-    `${user.name} ganhou ${result.xpGained} XP em ${club.name}. ` +
-      `Total: ${member.xp}`,
+    `${user.name} ganhou ${result.xpGained} XP em ` +
+      `${club.name}. Total: ${member.xp}`,
   );
 
   if (result.leveledUp) {
     const oldTitle = getTitle(result.previousLevel);
+
     const newTitle = getTitle(member.level);
 
     let levelUpMessage =

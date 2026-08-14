@@ -3,16 +3,19 @@ const { telegramRequest } = require("../telegram");
 async function adminHelpCommand(message) {
   const response =
     `🛡️ Comandos administrativos\n\n` +
-    `Responda à mensagem do membro:\n` +
-    `/perfil — mostra o perfil do membro\n` +
+    `XP manual — responda à mensagem do membro:\n` +
     `/darxp quantidade motivo — entrega uma recompensa\n` +
     `/ajustarxp quantidade motivo — corrige o XP\n` +
     `/historico — mostra as alterações manuais\n\n` +
-    `Use sem responder:\n` +
+    `Catálogo de dardos:\n` +
+    `/criarfranquia nome — cria uma franquia\n` +
+    `/franquias — lista as franquias deste grupo\n` +
+    `/adicionarpersonagem — abre o cadastro guiado\n` +
+    `/personagens — lista os personagens cadastrados\n\n` +
+    `Sem responder a uma mensagem:\n` +
     `/desfazerxp ID motivo — desfaz uma transação\n` +
     `/statusxp — mostra as regras de XP\n` +
     `/comandosadm — mostra esta lista\n\n` +
-    `/perfil usado sem responder mostra o seu próprio perfil.\n\n` +
     `O ID é o número mostrado depois de ` +
     `"Transação: #". Ele também aparece no /historico.`;
 

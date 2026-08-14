@@ -5,7 +5,14 @@ const { runPolling } = require("./services/pollingService");
 let isRunning = true;
 
 async function ensureDatabaseIsMigrated() {
-  const requiredTables = ["users", "clubs", "club_members"];
+  const requiredTables = [
+    "users",
+    "clubs",
+    "club_members",
+    "xp_transactions",
+    "franchises",
+    "dart_characters",
+  ];
 
   const tables = await sequelize.getQueryInterface().showAllTables();
 

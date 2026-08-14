@@ -16,6 +16,8 @@ async function adminHelpCommand(message) {
     `/desfazerxp ID motivo — desfaz uma transação\n` +
     `/statusxp — mostra as regras de XP\n` +
     `/comandosadm — mostra esta lista\n\n` +
+    `Jogo:\n` +
+    `/dardos — mostra seus dardos e inicia um sorteio\n\n` +
     `O ID é o número mostrado depois de ` +
     `"Transação: #". Ele também aparece no /historico.`;
 

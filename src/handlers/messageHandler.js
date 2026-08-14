@@ -16,6 +16,13 @@ const { adminHelpCommand } = require("../commands/adminHelpCommand.js");
 
 const { xpStatusCommand } = require("../commands/xpStatusCommand");
 
+const {
+  createFranchiseCommand,
+  listFranchisesCommand,
+  addCharacterCommand,
+  listCharactersCommand,
+} = require("../commands/dartCatalogCommand");
+
 const { getTitle } = require("../services/titleService");
 
 const { getOrCreateUser } = require("../services/userService");
@@ -28,6 +35,8 @@ const { getCommandName } = require("../services/commandService");
 
 const { ensureGroupAdmin } = require("../services/adminService");
 
+const { handleCatalogUpload } = require("../services/dartCatalogUploadService");
+
 const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
 const adminCommands = new Set([
@@ -37,6 +46,10 @@ const adminCommands = new Set([
   "/desfazerxp",
   "/comandosadm",
   "/statusxp",
+  "/criarfranquia",
+  "/franquias",
+  "/adicionarpersonagem",
+  "/personagens",
 ]);
 
 async function handleMessage(message) {
@@ -49,9 +62,20 @@ async function handleMessage(message) {
   }
 
   const user = await getOrCreateUser(message);
+
   const club = await getOrCreateClub(message);
 
   const member = await getOrCreateClubMember(user, club);
+
+  // =========================
+  // UPLOAD DO CATÁLOGO
+  // =========================
+
+  const catalogUploadHandled = await handleCatalogUpload(message, user, club);
+
+  if (catalogUploadHandled) {
+    return;
+  }
 
   const commandName = getCommandName(message.text);
 
@@ -65,6 +89,10 @@ async function handleMessage(message) {
     if (!userIsAdmin) {
       return;
     }
+
+    // =========================
+    // ADMINISTRAÇÃO DE XP
+    // =========================
 
     if (commandName === "/darxp") {
       await grantXpCommand(message, user, club);
@@ -101,6 +129,34 @@ async function handleMessage(message) {
 
       return;
     }
+
+    // =========================
+    // CATÁLOGO DE DARDOS
+    // =========================
+
+    if (commandName === "/criarfranquia") {
+      await createFranchiseCommand(message, user, club);
+
+      return;
+    }
+
+    if (commandName === "/franquias") {
+      await listFranchisesCommand(message, club);
+
+      return;
+    }
+
+    if (commandName === "/adicionarpersonagem") {
+      await addCharacterCommand(message, club);
+
+      return;
+    }
+
+    if (commandName === "/personagens") {
+      await listCharactersCommand(message, club);
+
+      return;
+    }
   }
 
   // =========================
@@ -123,6 +179,8 @@ async function handleMessage(message) {
     return;
   }
 
+  // Impede comandos desconhecidos
+  // de entregarem XP automático.
   if (commandName) {
     return;
   }

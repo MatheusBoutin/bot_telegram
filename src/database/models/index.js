@@ -3,6 +3,8 @@ const { User } = require("./User");
 const { Club } = require("./Club");
 const { ClubMember } = require("./ClubMember");
 const { XpTransaction } = require("./XpTransaction");
+const { Franchise } = require("./Franchise");
+const { DartCharacter } = require("./DartCharacter");
 
 User.hasMany(ClubMember, {
   foreignKey: "userId",
@@ -64,10 +66,52 @@ XpTransaction.hasOne(XpTransaction, {
   as: "reversal",
 });
 
+Club.hasMany(Franchise, {
+  foreignKey: "clubId",
+  as: "franchises",
+});
+
+Franchise.belongsTo(Club, {
+  foreignKey: "clubId",
+  as: "club",
+});
+
+User.hasMany(Franchise, {
+  foreignKey: "createdByUserId",
+  as: "createdFranchises",
+});
+
+Franchise.belongsTo(User, {
+  foreignKey: "createdByUserId",
+  as: "creator",
+});
+
+Franchise.hasMany(DartCharacter, {
+  foreignKey: "franchiseId",
+  as: "characters",
+});
+
+DartCharacter.belongsTo(Franchise, {
+  foreignKey: "franchiseId",
+  as: "franchise",
+});
+
+User.hasMany(DartCharacter, {
+  foreignKey: "createdByUserId",
+  as: "createdDartCharacters",
+});
+
+DartCharacter.belongsTo(User, {
+  foreignKey: "createdByUserId",
+  as: "creator",
+});
+
 module.exports = {
   sequelize,
   User,
   Club,
   ClubMember,
   XpTransaction,
+  Franchise,
+  DartCharacter,
 };

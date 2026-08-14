@@ -1,6 +1,6 @@
 const { telegramRequest } = require("../telegram");
 
-const { handleMessage } = require("../handlers/messageHandler");
+const { handleUpdate } = require("../handlers/updateHandler");
 
 const {
   POLLING_TIMEOUT_SECONDS,
@@ -58,17 +58,14 @@ function formatError(error) {
 }
 
 async function processUpdateWithRetry(update, shouldContinue) {
-  if (!update.message) {
-    return true;
-  }
-
   for (let attempt = 1; attempt <= UPDATE_MAX_ATTEMPTS; attempt++) {
     if (!shouldContinue()) {
       return false;
     }
 
     try {
-      await handleMessage(update.message);
+      await handleUpdate(update);
+
       return true;
     } catch (error) {
       console.error(
@@ -104,7 +101,7 @@ async function runPolling(shouldContinue = () => true) {
 
     try {
       updates = await telegramRequest("getUpdates", {
-        offset: offset,
+        offset,
         timeout: POLLING_TIMEOUT_SECONDS,
       });
 
@@ -115,7 +112,9 @@ async function runPolling(shouldContinue = () => true) {
       }
 
       if (consecutivePollingErrors > 0) {
-        console.log("Conexão com o Telegram restabelecida. Polling retomado.");
+        console.log(
+          "Conexão com o Telegram restabelecida. " + "Polling retomado.",
+        );
       }
 
       consecutivePollingErrors = 0;
@@ -145,6 +144,7 @@ async function runPolling(shouldContinue = () => true) {
       }
 
       await processUpdateWithRetry(update, shouldContinue);
+
       offset = update.update_id + 1;
     }
   }

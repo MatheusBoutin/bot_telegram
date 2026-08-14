@@ -1,0 +1,23 @@
+const DARTS_PER_DAY = 3;
+
+const DARTS_TIME_ZONE = "America/Sao_Paulo";
+
+const DART_GAME_SESSION_DURATION_MS = 10 * 60 * 1000;
+
+const DART_ANIMATION_DELAY_MS = 1500;
+
+const DART_RARITY_WEIGHTS = Object.freeze({
+  common: 60,
+  uncommon: 25,
+  rare: 10,
+  epic: 4,
+  legendary: 1,
+});
+
+module.exports = {
+  DARTS_PER_DAY,
+  DARTS_TIME_ZONE,
+  DART_GAME_SESSION_DURATION_MS,
+  DART_ANIMATION_DELAY_MS,
+  DART_RARITY_WEIGHTS,
+};

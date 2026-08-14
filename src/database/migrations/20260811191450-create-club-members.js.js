@@ -81,6 +81,17 @@ module.exports = {
         type: Sequelize.DATE,
         allowNull: false,
       },
+
+      dartsAvailable: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 3,
+      },
+
+      dartsRefreshedOn: {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+      },
     });
 
     await queryInterface.addIndex("club_members", ["userId", "clubId"], {

@@ -1,4 +1,5 @@
 const { DataTypes } = require("sequelize");
+
 const { sequelize } = require("../database");
 
 const ClubMember = sequelize.define(
@@ -55,6 +56,17 @@ const ClubMember = sequelize.define(
       type: DataTypes.BIGINT,
       allowNull: false,
       defaultValue: 0,
+    },
+
+    dartsAvailable: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 3,
+    },
+
+    dartsRefreshedOn: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
     },
   },
   {

@@ -4,6 +4,8 @@ const { profileCommand } = require("../commands/profileCommand");
 
 const { rankCommand } = require("../commands/rankCommand");
 
+const { dartsCommand } = require("../commands/dartsCommand");
+
 const { grantXpCommand } = require("../commands/grantXpCommand");
 
 const { adjustXpCommand } = require("../commands/adjustXpCommand");
@@ -96,37 +98,31 @@ async function handleMessage(message) {
 
     if (commandName === "/darxp") {
       await grantXpCommand(message, user, club);
-
       return;
     }
 
     if (commandName === "/ajustarxp") {
       await adjustXpCommand(message, user, club);
-
       return;
     }
 
     if (commandName === "/historico") {
       await xpHistoryCommand(message, club);
-
       return;
     }
 
     if (commandName === "/desfazerxp") {
       await undoXpCommand(message, user, club);
-
       return;
     }
 
     if (commandName === "/comandosadm") {
       await adminHelpCommand(message);
-
       return;
     }
 
     if (commandName === "/statusxp") {
       await xpStatusCommand(message, club);
-
       return;
     }
 
@@ -142,19 +138,16 @@ async function handleMessage(message) {
 
     if (commandName === "/franquias") {
       await listFranchisesCommand(message, club);
-
       return;
     }
 
     if (commandName === "/adicionarpersonagem") {
       await addCharacterCommand(message, club);
-
       return;
     }
 
     if (commandName === "/personagens") {
       await listCharactersCommand(message, club);
-
       return;
     }
   }
@@ -175,6 +168,15 @@ async function handleMessage(message) {
 
   if (commandName === "/rank") {
     await rankCommand(message, club);
+    return;
+  }
+
+  // =========================
+  // COMANDO /dardos
+  // =========================
+
+  if (commandName === "/dardos") {
+    await dartsCommand(message, user, club, member);
 
     return;
   }

@@ -26,41 +26,6 @@ const User = sequelize.define(
       allowNull: true,
     },
 
-    xp: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
-
-    level: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 1,
-    },
-
-    messageCount: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-    },
-
-    lastXpAt: {
-      type: DataTypes.BIGINT,
-      allowNull: false,
-      defaultValue: 0,
-    },
-
-    lastMessage: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      defaultValue: "",
-    },
-
-    lastMessageAt: {
-      type: DataTypes.BIGINT,
-      allowNull: false,
-      defaultValue: 0,
-    },
   },
   {
     tableName: "users",

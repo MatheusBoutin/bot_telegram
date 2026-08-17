@@ -58,16 +58,6 @@ const ClubMember = sequelize.define(
       defaultValue: 0,
     },
 
-    dartsAvailable: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 3,
-    },
-
-    dartsRefreshedOn: {
-      type: DataTypes.DATEONLY,
-      allowNull: true,
-    },
   },
   {
     tableName: "club_members",

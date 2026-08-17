@@ -5,6 +5,8 @@ const { ClubMember } = require("./ClubMember");
 const { XpTransaction } = require("./XpTransaction");
 const { Franchise } = require("./Franchise");
 const { DartCharacter } = require("./DartCharacter");
+const { BotAdmin } = require("./BotAdmin");
+const { DartPlayer } = require("./DartPlayer");
 
 User.hasMany(ClubMember, {
   foreignKey: "userId",
@@ -66,15 +68,13 @@ XpTransaction.hasOne(XpTransaction, {
   as: "reversal",
 });
 
-Club.hasMany(Franchise, {
-  foreignKey: "clubId",
-  as: "franchises",
-});
+User.hasOne(DartPlayer, { foreignKey: "userId", as: "dartPlayer" });
+DartPlayer.belongsTo(User, { foreignKey: "userId", as: "user" });
 
-Franchise.belongsTo(Club, {
-  foreignKey: "clubId",
-  as: "club",
-});
+User.hasOne(BotAdmin, { foreignKey: "userId", as: "botAdmin" });
+BotAdmin.belongsTo(User, { foreignKey: "userId", as: "user" });
+BotAdmin.belongsTo(User, { foreignKey: "grantedByUserId", as: "grantedBy" });
+BotAdmin.belongsTo(User, { foreignKey: "revokedByUserId", as: "revokedBy" });
 
 User.hasMany(Franchise, {
   foreignKey: "createdByUserId",
@@ -114,4 +114,6 @@ module.exports = {
   XpTransaction,
   Franchise,
   DartCharacter,
+  BotAdmin,
+  DartPlayer,
 };

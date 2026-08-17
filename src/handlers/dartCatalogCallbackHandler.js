@@ -1,288 +1,86 @@
 const { telegramRequest } = require("../telegram");
-
-const { isGroupAdmin } = require("../services/adminService");
-
 const { getOrCreateUser } = require("../services/userService");
+const { canManageBot } = require("../services/botAdminService");
+const { findActiveFranchise, createDartCharacter, listCharacters } = require("../services/dartCatalogService");
+const { DART_RARITY_LABELS, DART_RARITY_EMOJIS } = require("../config/dartConfig");
+const { saveCatalogSession, getCatalogSession, clearCatalogSession } = require("../services/dartCatalogSessionService");
 
-const { getOrCreateClub } = require("../services/clubService");
-
-const {
-  findActiveFranchise,
-  createDartCharacter,
-  listCharacters,
-} = require("../services/dartCatalogService");
-
-const {
-  DART_RARITY_LABELS,
-  DART_RARITY_EMOJIS,
-} = require("../config/dartConfig");
-
-const {
-  saveCatalogSession,
-  getCatalogSession,
-  clearCatalogSession,
-} = require("../services/dartCatalogSessionService");
-
-function isCatalogCallback(callbackQuery) {
-  return callbackQuery.data?.startsWith("catalog:") || false;
+const isCatalogCallback = (query) => query.data?.startsWith("catalog:") || false;
+async function removeKeyboard(query) {
+  await telegramRequest("editMessageReplyMarkup", { chat_id: query.message.chat.id, message_id: query.message.message_id, reply_markup: { inline_keyboard: [] } });
 }
-
-async function removeInlineKeyboard(callbackQuery) {
-  if (!callbackQuery.message) {
-    return;
-  }
-
-  await telegramRequest("editMessageReplyMarkup", {
-    chat_id: callbackQuery.message.chat.id,
-
-    message_id: callbackQuery.message.message_id,
-
-    reply_markup: {
-      inline_keyboard: [],
-    },
-  });
-}
-
-async function startCharacterUpload(callbackQuery, adminUser, club) {
-  const match = callbackQuery.data.match(/^catalog:add:(\d+)$/);
-
-  if (!match) {
-    return;
-  }
-
-  const franchiseId = Number(match[1]);
-
-  const franchise = await findActiveFranchise(club, franchiseId);
-
-  if (!franchise) {
-    await telegramRequest("sendMessage", {
-      chat_id: callbackQuery.message.chat.id,
-
-      text: "Essa franquia não está mais disponível.",
-    });
-
-    return;
-  }
-
-  saveCatalogSession(club.id, adminUser.id, {
-    stage: "awaiting_photo",
-    franchiseId: franchise.id,
-  });
-
+async function startUpload(query, user) {
+  const match = query.data.match(/^catalog:add:(\d+)$/);
+  if (!match) return;
+  const franchise = await findActiveFranchise(Number(match[1]));
+  if (!franchise) return telegramRequest("sendMessage", { chat_id: query.message.chat.id, text: "Essa franquia não está mais disponível." });
+  saveCatalogSession(query.message.chat.id, user.id, { stage: "awaiting_photo", franchiseId: franchise.id });
   await telegramRequest("sendMessage", {
-    chat_id: callbackQuery.message.chat.id,
-
-    text:
-      `Franquia escolhida: ${franchise.name}\n\n` +
-      "Agora responda a esta mensagem com a imagem " +
-      "do personagem e a legenda.\n\n" +
-      "Use / ou | para separar as informações:\n\n" +
-      "Nome / raridade / descrição\n\n" +
-      "Exemplo recomendado para celular:\n" +
-      "Gimli / lendário / Filho de Glóin e membro da Sociedade do Anel.\n\n" +
-      "Também funciona assim:\n" +
-      "Gimli | lendário | Filho de Glóin e membro da Sociedade do Anel.\n\n" +
-      "Raridades: comum, incomum, raro, épico e lendário.\n" +
-      "O cadastro expira em 10 minutos. " +
-      "Use /cancelar para sair.",
+    chat_id: query.message.chat.id,
+    text: `Franquia escolhida: ${franchise.name}\n\nAgora envie a imagem do personagem com a legenda:\nNome / raridade / descrição\n\nRaridades: comum, incomum, raro, épico e lendário.\nO cadastro expira em 10 minutos. Use /cancelar para sair.`,
   });
 }
-
-async function showFranchiseCharacters(callbackQuery, club) {
-  const match = callbackQuery.data.match(/^catalog:list:(\d+)$/);
-
-  if (!match) {
-    return;
-  }
-
-  const franchise = await findActiveFranchise(club, Number(match[1]));
-
-  if (!franchise) {
-    await telegramRequest("sendMessage", {
-      chat_id: callbackQuery.message.chat.id,
-
-      text: "Essa franquia não está mais disponível.",
-    });
-
-    return;
-  }
-
+async function showCharacters(query) {
+  const match = query.data.match(/^catalog:list:(\d+)$/);
+  if (!match) return;
+  const franchise = await findActiveFranchise(Number(match[1]));
+  if (!franchise) return telegramRequest("sendMessage", { chat_id: query.message.chat.id, text: "Essa franquia não está mais disponível." });
   const characters = await listCharacters(franchise);
-
-  if (characters.length === 0) {
-    await telegramRequest("sendMessage", {
-      chat_id: callbackQuery.message.chat.id,
-
-      text: `A franquia ${franchise.name} ` + `ainda não possui personagens.`,
-    });
-
-    return;
-  }
-
-  const lines = characters.map((character) => {
-    const status = character.active ? "" : " — desativado";
-
-    return (
-      `${DART_RARITY_EMOJIS[character.rarity]} ` +
-      `${character.name} — ` +
-      `${DART_RARITY_LABELS[character.rarity]}` +
-      `${status}`
-    );
-  });
-
-  await telegramRequest("sendMessage", {
-    chat_id: callbackQuery.message.chat.id,
-
-    text:
-      `🎯 Personagens — ${franchise.name}\n\n` +
-      lines.join("\n") +
-      (characters.length === 20
-        ? "\n\nMostrando os primeiros 20 personagens."
-        : ""),
-  });
+  const text = characters.length
+    ? `🎯 Personagens — ${franchise.name}\n\n${characters.map((character) => `${DART_RARITY_EMOJIS[character.rarity]} ${character.name} — ${DART_RARITY_LABELS[character.rarity]}${character.active ? "" : " — desativado"}`).join("\n")}${characters.length === 20 ? "\n\nMostrando os primeiros 20 personagens." : ""}`
+    : `A franquia ${franchise.name} ainda não possui personagens.`;
+  await telegramRequest("sendMessage", { chat_id: query.message.chat.id, text });
 }
-
-async function confirmCharacter(callbackQuery, adminUser, club) {
-  const session = getCatalogSession(club.id, adminUser.id);
-
-  if (!session || session.stage !== "awaiting_confirmation") {
-    await telegramRequest("sendMessage", {
-      chat_id: callbackQuery.message.chat.id,
-
-      text:
-        "Esse cadastro expirou ou já foi finalizado. " +
-        "Use /adicionarpersonagem para começar novamente.",
-    });
-
-    return;
+async function confirm(query, user) {
+  const chatId = query.message.chat.id;
+  const session = getCatalogSession(chatId, user.id);
+  if (!session || session.stage !== "awaiting_confirmation") return telegramRequest("sendMessage", { chat_id: chatId, text: "Esse cadastro expirou ou já foi finalizado. Use /adicionarpersonagem novamente." });
+  if (!(await canManageBot(user))) {
+    clearCatalogSession(chatId, user.id);
+    return telegramRequest("sendMessage", { chat_id: chatId, text: "Seu acesso administrativo foi removido." });
   }
-
-  const franchise = await findActiveFranchise(club, session.franchiseId);
-
+  const franchise = await findActiveFranchise(session.franchiseId);
   if (!franchise) {
-    clearCatalogSession(club.id, adminUser.id);
-
-    await telegramRequest("sendMessage", {
-      chat_id: callbackQuery.message.chat.id,
-
-      text: "A franquia não está mais disponível.",
-    });
-
-    return;
+    clearCatalogSession(chatId, user.id);
+    return telegramRequest("sendMessage", { chat_id: chatId, text: "A franquia não está mais disponível." });
   }
-
   try {
-    const character = await createDartCharacter({
-      franchise,
-      adminUser,
-      characterData: session.characterData,
-    });
-
-    clearCatalogSession(club.id, adminUser.id);
-
-    await removeInlineKeyboard(callbackQuery);
-
-    await telegramRequest("sendMessage", {
-      chat_id: callbackQuery.message.chat.id,
-
-      text:
-        `✅ ${character.name} foi adicionado à franquia ` +
-        `${franchise.name}.`,
-    });
-  } catch (error) {
-    if (error.name === "SequelizeUniqueConstraintError") {
-      clearCatalogSession(club.id, adminUser.id);
-
-      await removeInlineKeyboard(callbackQuery);
-
-      await telegramRequest("sendMessage", {
-        chat_id: callbackQuery.message.chat.id,
-
-        text:
-          "Já existe um personagem com esse nome nessa franquia. " +
-          "Use /adicionarpersonagem para tentar novamente.",
-      });
-
-      return;
+    if (!(await canManageBot(user))) {
+      clearCatalogSession(chatId, user.id);
+      return telegramRequest("sendMessage", { chat_id: chatId, text: "Seu acesso administrativo foi removido." });
     }
-
-    throw error;
+    const character = await createDartCharacter({ franchise, adminUser: user, characterData: session.characterData });
+    clearCatalogSession(chatId, user.id);
+    await removeKeyboard(query);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: `✅ ${character.name} foi adicionado à franquia ${franchise.name}.` });
+  } catch (error) {
+    if (error.name !== "SequelizeUniqueConstraintError") throw error;
+    clearCatalogSession(chatId, user.id);
+    await removeKeyboard(query);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "Já existe um personagem com esse nome nessa franquia. Use /adicionarpersonagem novamente." });
   }
 }
 
-async function cancelCharacter(callbackQuery, adminUser, club) {
-  clearCatalogSession(club.id, adminUser.id);
-
-  await removeInlineKeyboard(callbackQuery);
-
-  await telegramRequest("sendMessage", {
-    chat_id: callbackQuery.message.chat.id,
-
-    text: "Cadastro de personagem cancelado.",
-  });
-}
-
-async function handleDartCatalogCallback(callbackQuery) {
-  if (!isCatalogCallback(callbackQuery)) {
-    return false;
-  }
-
-  await telegramRequest("answerCallbackQuery", {
-    callback_query_id: callbackQuery.id,
-  });
-
-  if (!callbackQuery.message?.chat || !callbackQuery.from) {
+async function handleDartCatalogCallback(query) {
+  if (!isCatalogCallback(query)) return false;
+  await telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
+  if (!query.message?.chat || !query.from) return true;
+  const chatId = query.message.chat.id;
+  const user = await getOrCreateUser({ chat: query.message.chat, from: query.from });
+  if (!(await canManageBot(user))) {
+    clearCatalogSession(chatId, user.id);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "Este botão exige acesso de administrador global do bot." });
     return true;
   }
-
-  const messageContext = {
-    chat: callbackQuery.message.chat,
-    from: callbackQuery.from,
-  };
-
-  const userIsAdmin = await isGroupAdmin(messageContext);
-
-  if (!userIsAdmin) {
-    await telegramRequest("sendMessage", {
-      chat_id: callbackQuery.message.chat.id,
-
-      text: "Somente administradores podem usar os botões do catálogo.",
-    });
-
-    return true;
+  if (query.data.startsWith("catalog:add:")) await startUpload(query, user);
+  else if (query.data.startsWith("catalog:list:")) await showCharacters(query);
+  else if (query.data === "catalog:confirm") await confirm(query, user);
+  else if (query.data === "catalog:cancel") {
+    clearCatalogSession(chatId, user.id);
+    await removeKeyboard(query);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "Cadastro de personagem cancelado." });
   }
-
-  const adminUser = await getOrCreateUser(messageContext);
-
-  const club = await getOrCreateClub(messageContext);
-
-  if (callbackQuery.data.startsWith("catalog:add:")) {
-    await startCharacterUpload(callbackQuery, adminUser, club);
-
-    return true;
-  }
-
-  if (callbackQuery.data.startsWith("catalog:list:")) {
-    await showFranchiseCharacters(callbackQuery, club);
-
-    return true;
-  }
-
-  if (callbackQuery.data === "catalog:confirm") {
-    await confirmCharacter(callbackQuery, adminUser, club);
-
-    return true;
-  }
-
-  if (callbackQuery.data === "catalog:cancel") {
-    await cancelCharacter(callbackQuery, adminUser, club);
-
-    return true;
-  }
-
   return true;
 }
 
-module.exports = {
-  handleDartCatalogCallback,
-};
+module.exports = { handleDartCatalogCallback, isCatalogCallback };

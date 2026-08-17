@@ -1,195 +1,102 @@
-const { Op } = require("sequelize");
-
-const {
-  sequelize,
-  ClubMember,
-  Franchise,
-  DartCharacter,
-} = require("../database/models");
-
-const {
-  DARTS_PER_DAY,
-  DARTS_TIME_ZONE,
-  DART_RARITY_WEIGHTS,
-} = require("../config/dartGameConfig");
+const { sequelize, DartPlayer, Franchise, DartCharacter } = require("../database/models");
+const { DARTS_PER_DAY, DARTS_TIME_ZONE, DART_RARITY_WEIGHTS } = require("../config/dartGameConfig");
 
 function getDartDay(date = new Date()) {
-  const dateParts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: DARTS_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-
-  const partsByType = Object.fromEntries(
-    dateParts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-
-  return (
-    `${partsByType.year}-` + `${partsByType.month}-` + `${partsByType.day}`
-  );
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: DARTS_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-async function refreshDailyDarts(member, date = new Date()) {
-  const today = getDartDay(date);
-
-  if (member.dartsRefreshedOn === today) {
-    return member;
-  }
-
-  await ClubMember.update(
-    {
-      dartsAvailable: DARTS_PER_DAY,
-      dartsRefreshedOn: today,
-    },
-    {
-      where: {
-        id: member.id,
-
-        [Op.or]: [
-          {
-            dartsRefreshedOn: null,
-          },
-          {
-            dartsRefreshedOn: {
-              [Op.ne]: today,
-            },
-          },
-        ],
-      },
-    },
-  );
-
-  await member.reload();
-
-  return member;
-}
-
-async function consumeDart(member) {
-  await refreshDailyDarts(member);
-
-  const [affectedRows] = await ClubMember.update(
-    {
-      dartsAvailable: sequelize.literal('"dartsAvailable" - 1'),
-    },
-    {
-      where: {
-        id: member.id,
-
-        dartsAvailable: {
-          [Op.gt]: 0,
-        },
-      },
-    },
-  );
-
-  await member.reload();
-
-  return {
-    consumed: affectedRows === 1,
-    remainingDarts: member.dartsAvailable,
-  };
-}
-
-async function getPlayableFranchises(club) {
-  const franchises = await Franchise.findAll({
-    where: {
-      clubId: club.id,
-      active: true,
-    },
-
-    order: [["name", "ASC"]],
+async function findOrCreateLockedPlayer(userId, transaction) {
+  const [player, created] = await DartPlayer.findOrCreate({
+    where: { userId },
+    defaults: { dartsAvailable: DARTS_PER_DAY, dartsRefreshedOn: getDartDay() },
+    transaction,
   });
+  if (!created) await player.reload({ transaction, lock: transaction.LOCK.UPDATE });
+  return player;
+}
 
-  const playableFranchises = await Promise.all(
-    franchises.map(async (franchise) => {
-      const characterCount = await DartCharacter.count({
-        where: {
-          franchiseId: franchise.id,
-          active: true,
-        },
-      });
+function refreshPlayerForDay(player, today) {
+  if (player.dartsRefreshedOn !== today) {
+    player.dartsAvailable = DARTS_PER_DAY;
+    player.dartsRefreshedOn = today;
+    return true;
+  }
+  return false;
+}
 
-      return {
-        franchise,
-        characterCount,
-      };
-    }),
-  );
-
-  return playableFranchises.filter(({ characterCount }) => {
-    return characterCount > 0;
+async function getDartPlayer(user, date = new Date()) {
+  return sequelize.transaction(async (transaction) => {
+    const player = await findOrCreateLockedPlayer(user.id, transaction);
+    if (refreshPlayerForDay(player, getDartDay(date))) await player.save({ transaction });
+    return player;
   });
 }
 
-function getCharacterWeight(character) {
-  return DART_RARITY_WEIGHTS[character.rarity] || 1;
+async function refreshDailyDarts(playerOrUser, date = new Date()) {
+  const user = playerOrUser.userId ? { id: playerOrUser.userId } : playerOrUser;
+  return getDartPlayer(user, date);
 }
 
-function chooseWeightedCharacter(characters, random = Math.random) {
-  if (characters.length === 0) {
-    return null;
-  }
-
-  const totalWeight = characters.reduce((total, character) => {
-    return total + getCharacterWeight(character);
-  }, 0);
-
-  let drawnWeight = random() * totalWeight;
-
-  for (const character of characters) {
-    drawnWeight -= getCharacterWeight(character);
-
-    if (drawnWeight < 0) {
-      return character;
+async function consumeDart(user, date = new Date()) {
+  return sequelize.transaction(async (transaction) => {
+    const player = await findOrCreateLockedPlayer(user.id, transaction);
+    refreshPlayerForDay(player, getDartDay(date));
+    if (player.dartsAvailable <= 0) {
+      await player.save({ transaction });
+      return { consumed: false, remainingDarts: 0, player };
     }
-  }
+    player.dartsAvailable -= 1;
+    await player.save({ transaction });
+    return { consumed: true, remainingDarts: player.dartsAvailable, player };
+  });
+}
 
+async function refundDart(user) {
+  return sequelize.transaction(async (transaction) => {
+    const player = await findOrCreateLockedPlayer(user.id, transaction);
+    refreshPlayerForDay(player, getDartDay());
+    player.dartsAvailable = Math.min(DARTS_PER_DAY, player.dartsAvailable + 1);
+    await player.save({ transaction });
+    return player;
+  });
+}
+
+async function getPlayableFranchises() {
+  const franchises = await Franchise.findAll({ where: { active: true }, order: [["name", "ASC"]] });
+  const values = await Promise.all(franchises.map(async (franchise) => ({
+    franchise,
+    characterCount: await DartCharacter.count({ where: { franchiseId: franchise.id, active: true } }),
+  })));
+  return values.filter(({ characterCount }) => characterCount > 0);
+}
+
+function getCharacterWeight(character) { return DART_RARITY_WEIGHTS[character.rarity] || 1; }
+function chooseWeightedCharacter(characters, random = Math.random) {
+  if (characters.length === 0) return null;
+  const total = characters.reduce((sum, character) => sum + getCharacterWeight(character), 0);
+  let selected = random() * total;
+  for (const character of characters) {
+    selected -= getCharacterWeight(character);
+    if (selected < 0) return character;
+  }
   return characters.at(-1);
 }
 
 async function drawCharacter(franchise) {
-  const characters = await DartCharacter.findAll({
-    where: {
-      franchiseId: franchise.id,
-      active: true,
-    },
-  });
-
-  return chooseWeightedCharacter(characters);
+  return chooseWeightedCharacter(await DartCharacter.findAll({ where: { franchiseId: franchise.id, active: true } }));
 }
 
-async function findPlayableFranchise(club, franchiseId) {
-  const franchise = await Franchise.findOne({
-    where: {
-      id: franchiseId,
-      clubId: club.id,
-      active: true,
-    },
-  });
-
-  if (!franchise) {
-    return null;
-  }
-
-  const characterCount = await DartCharacter.count({
-    where: {
-      franchiseId: franchise.id,
-      active: true,
-    },
-  });
-
-  return characterCount > 0 ? franchise : null;
+async function findPlayableFranchise(franchiseId) {
+  const franchise = await Franchise.findOne({ where: { id: franchiseId, active: true } });
+  if (!franchise) return null;
+  return (await DartCharacter.count({ where: { franchiseId: franchise.id, active: true } })) > 0 ? franchise : null;
 }
 
 module.exports = {
-  getDartDay,
-  refreshDailyDarts,
-  consumeDart,
-  getPlayableFranchises,
-  chooseWeightedCharacter,
-  drawCharacter,
-  findPlayableFranchise,
+  getDartDay, getDartPlayer, refreshDailyDarts, consumeDart, refundDart,
+  getPlayableFranchises, chooseWeightedCharacter, drawCharacter, findPlayableFranchise,
+  refreshPlayerForDay,
 };

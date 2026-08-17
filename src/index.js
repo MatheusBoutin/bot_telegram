@@ -1,6 +1,7 @@
 const { sequelize } = require("./database/models");
 
 const { runPolling } = require("./services/pollingService");
+const { getBotOwnerId } = require("./config/botOwnerConfig");
 
 let isRunning = true;
 
@@ -12,6 +13,8 @@ async function ensureDatabaseIsMigrated() {
     "xp_transactions",
     "franchises",
     "dart_characters",
+    "bot_admins",
+    "dart_players",
   ];
 
   const tables = await sequelize.getQueryInterface().showAllTables();
@@ -73,6 +76,7 @@ async function closeDatabase() {
 }
 
 async function main() {
+  getBotOwnerId();
   configureShutdownHandlers();
 
   await sequelize.authenticate();

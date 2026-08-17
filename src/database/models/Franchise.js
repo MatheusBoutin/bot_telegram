@@ -10,11 +10,6 @@ const Franchise = sequelize.define(
       primaryKey: true,
     },
 
-    clubId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-
     name: {
       type: DataTypes.STRING(120),
       allowNull: false,
@@ -42,12 +37,12 @@ const Franchise = sequelize.define(
     indexes: [
       {
         unique: true,
-        fields: ["clubId", "normalizedName"],
-        name: "franchises_club_normalized_name_unique",
+        fields: ["normalizedName"],
+        name: "franchises_normalized_name_unique",
       },
       {
-        fields: ["clubId", "active"],
-        name: "franchises_club_active",
+        fields: ["active"],
+        name: "franchises_active",
       },
     ],
   },

@@ -1,9 +1,8 @@
 const { Franchise, DartCharacter } = require("../database/models");
 
-async function createFranchise({ club, adminUser, parsedFranchise }) {
+async function createFranchise({ adminUser, parsedFranchise }) {
   const [franchise, created] = await Franchise.findOrCreate({
     where: {
-      clubId: club.id,
       normalizedName: parsedFranchise.normalizedName,
     },
 
@@ -20,10 +19,8 @@ async function createFranchise({ club, adminUser, parsedFranchise }) {
   };
 }
 
-async function listFranchises(club, { activeOnly = false } = {}) {
-  const where = {
-    clubId: club.id,
-  };
+async function listFranchises({ activeOnly = false } = {}) {
+  const where = {};
 
   if (activeOnly) {
     where.active = true;
@@ -35,11 +32,10 @@ async function listFranchises(club, { activeOnly = false } = {}) {
   });
 }
 
-async function findActiveFranchise(club, franchiseId) {
+async function findActiveFranchise(franchiseId) {
   return Franchise.findOne({
     where: {
       id: franchiseId,
-      clubId: club.id,
       active: true,
     },
   });

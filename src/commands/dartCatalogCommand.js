@@ -1,162 +1,45 @@
 const { telegramRequest } = require("../telegram");
-
 const { parseFranchiseName } = require("../services/dartCatalogParser");
-
-const {
-  createFranchise,
-  listFranchises,
-  countCharacters,
-} = require("../services/dartCatalogService");
+const { createFranchise, listFranchises, countCharacters } = require("../services/dartCatalogService");
 
 function createFranchiseKeyboard(franchises, action) {
   const rows = [];
-
   for (let index = 0; index < franchises.length; index += 2) {
-    const row = franchises.slice(index, index + 2).map((franchise) => {
-      return {
-        text: franchise.name,
-        callback_data: `catalog:${action}:${franchise.id}`,
-      };
-    });
-
-    rows.push(row);
+    rows.push(franchises.slice(index, index + 2).map((franchise) => ({
+      text: franchise.name, callback_data: `catalog:${action}:${franchise.id}`,
+    })));
   }
-
-  return {
-    inline_keyboard: rows,
-  };
+  return { inline_keyboard: rows };
 }
 
-async function createFranchiseCommand(message, adminUser, club) {
+async function createFranchiseCommand(message, adminUser) {
   const parsedFranchise = parseFranchiseName(message.text);
-
-  if (!parsedFranchise.ok) {
-    await telegramRequest("sendMessage", {
-      chat_id: message.chat.id,
-
-      text:
-        "Como usar:\n" +
-        "/criarfranquia Nome da franquia\n\n" +
-        parsedFranchise.error,
-    });
-
-    return;
-  }
-
-  const result = await createFranchise({
-    club,
-    adminUser,
-    parsedFranchise,
-  });
-
-  if (!result.created) {
-    await telegramRequest("sendMessage", {
-      chat_id: message.chat.id,
-      text: `A franquia “${result.franchise.name}” ` + `já existe neste grupo.`,
-    });
-
-    return;
-  }
-
-  await telegramRequest("sendMessage", {
+  if (!parsedFranchise.ok) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `Como usar:\n/criarfranquia Nome da franquia\n\n${parsedFranchise.error}` });
+  const result = await createFranchise({ adminUser, parsedFranchise });
+  return telegramRequest("sendMessage", {
     chat_id: message.chat.id,
-
-    text:
-      `✅ Franquia “${result.franchise.name}” criada!\n\n` +
-      "Agora use /adicionarpersonagem para montar o catálogo.",
+    text: result.created ? `✅ Franquia “${result.franchise.name}” criada!\n\nAgora use /adicionarpersonagem para montar o catálogo.` : `A franquia “${result.franchise.name}” já existe no catálogo global.`,
   });
 }
 
-async function listFranchisesCommand(message, club) {
-  const franchises = await listFranchises(club);
-
-  if (franchises.length === 0) {
-    await telegramRequest("sendMessage", {
-      chat_id: message.chat.id,
-
-      text:
-        "Nenhuma franquia foi criada neste grupo.\n\n" +
-        "Use /criarfranquia Nome da franquia.",
-    });
-
-    return;
-  }
-
-  const characterCounts = await Promise.all(
-    franchises.map((franchise) => {
-      return countCharacters(franchise.id);
-    }),
-  );
-
-  const lines = franchises.map((franchise, index) => {
-    const status = franchise.active ? "ativa" : "desativada";
-
-    const count = characterCounts[index];
-
-    const label = count === 1 ? "personagem" : "personagens";
-
-    return `• ${franchise.name} — ` + `${count} ${label} — ${status}`;
-  });
-
-  await telegramRequest("sendMessage", {
-    chat_id: message.chat.id,
-
-    text: `🎯 Franquias deste grupo\n\n` + lines.join("\n"),
-  });
+async function listFranchisesCommand(message) {
+  const franchises = await listFranchises();
+  if (!franchises.length) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Nenhuma franquia foi criada no catálogo global.\n\nUse /criarfranquia Nome da franquia." });
+  const counts = await Promise.all(franchises.map(({ id }) => countCharacters(id)));
+  const lines = franchises.map((franchise, index) => `• ${franchise.name} — ${counts[index]} ${counts[index] === 1 ? "personagem" : "personagens"} — ${franchise.active ? "ativa" : "desativada"}`);
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `🎯 Franquias do catálogo global\n\n${lines.join("\n")}` });
 }
 
-async function addCharacterCommand(message, club) {
-  const franchises = await listFranchises(club, {
-    activeOnly: true,
-  });
-
-  if (franchises.length === 0) {
-    await telegramRequest("sendMessage", {
-      chat_id: message.chat.id,
-
-      text:
-        "Crie pelo menos uma franquia antes de adicionar personagens.\n\n" +
-        "Use /criarfranquia Nome da franquia.",
-    });
-
-    return;
-  }
-
-  await telegramRequest("sendMessage", {
-    chat_id: message.chat.id,
-
-    text: "Escolha a franquia que receberá o personagem:",
-
-    reply_markup: createFranchiseKeyboard(franchises, "add"),
-  });
+async function addCharacterCommand(message) {
+  const franchises = await listFranchises({ activeOnly: true });
+  if (!franchises.length) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Crie pelo menos uma franquia antes de adicionar personagens.\n\nUse /criarfranquia Nome da franquia." });
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Escolha a franquia que receberá o personagem:", reply_markup: createFranchiseKeyboard(franchises, "add") });
 }
 
-async function listCharactersCommand(message, club) {
-  const franchises = await listFranchises(club, {
-    activeOnly: true,
-  });
-
-  if (franchises.length === 0) {
-    await telegramRequest("sendMessage", {
-      chat_id: message.chat.id,
-      text: "Nenhuma franquia ativa foi encontrada neste grupo.",
-    });
-
-    return;
-  }
-
-  await telegramRequest("sendMessage", {
-    chat_id: message.chat.id,
-
-    text: "Escolha a franquia que deseja consultar:",
-
-    reply_markup: createFranchiseKeyboard(franchises, "list"),
-  });
+async function listCharactersCommand(message) {
+  const franchises = await listFranchises({ activeOnly: true });
+  if (!franchises.length) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Nenhuma franquia ativa foi encontrada no catálogo global." });
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Escolha a franquia que deseja consultar:", reply_markup: createFranchiseKeyboard(franchises, "list") });
 }
 
-module.exports = {
-  createFranchiseCommand,
-  listFranchisesCommand,
-  addCharacterCommand,
-  listCharactersCommand,
-};
+module.exports = { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand, createFranchiseKeyboard };

@@ -2,19 +2,19 @@ const { DART_GAME_SESSION_DURATION_MS } = require("../config/dartGameConfig");
 
 const dartGameSessions = new Map();
 
-function getSessionKey(clubId, userId) {
-  return `${clubId}:${userId}`;
+function getSessionKey(chatId, userId) {
+  return `${chatId}:${userId}`;
 }
 
-function saveDartGameSession(clubId, userId, sessionData) {
-  dartGameSessions.set(getSessionKey(clubId, userId), {
+function saveDartGameSession(chatId, userId, sessionData) {
+  dartGameSessions.set(getSessionKey(chatId, userId), {
     ...sessionData,
     expiresAt: Date.now() + DART_GAME_SESSION_DURATION_MS,
   });
 }
 
-function getDartGameSession(clubId, userId) {
-  const key = getSessionKey(clubId, userId);
+function getDartGameSession(chatId, userId) {
+  const key = getSessionKey(chatId, userId);
 
   const session = dartGameSessions.get(key);
 
@@ -30,12 +30,13 @@ function getDartGameSession(clubId, userId) {
   return session;
 }
 
-function clearDartGameSession(clubId, userId) {
-  dartGameSessions.delete(getSessionKey(clubId, userId));
+function clearDartGameSession(chatId, userId) {
+  dartGameSessions.delete(getSessionKey(chatId, userId));
 }
 
 module.exports = {
   saveDartGameSession,
   getDartGameSession,
   clearDartGameSession,
+  getSessionKey,
 };

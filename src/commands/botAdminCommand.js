@@ -1,0 +1,53 @@
+const { telegramRequest } = require("../telegram");
+const { User } = require("../database/models");
+const { getOrCreateUserFromTelegramUser } = require("../services/userService");
+const { getBotOwnerId } = require("../config/botOwnerConfig");
+const { canManageBot, grantBotAdmin, revokeBotAdmin, listActiveBotAdmins } = require("../services/botAdminService");
+
+const reply = (message, text) => telegramRequest("sendMessage", { chat_id: message.chat.id, text });
+async function meuidCommand(message) { await reply(message, `Seu ID do Telegram é: ${message.from.id}`); }
+
+async function resolveTarget(message) {
+  const telegramUser = message.reply_to_message?.from;
+  if (telegramUser) {
+    if (telegramUser.is_bot) return { error: "Bots não podem receber o cargo de administrador global." };
+    return { user: await getOrCreateUserFromTelegramUser(telegramUser) };
+  }
+  const rawId = message.text?.trim().split(/\s+/)[1];
+  if (!rawId || !/^\d+$/.test(rawId) || rawId === "0") return { error: "Informe um ID numérico válido ou responda à mensagem da pessoa." };
+  const user = await User.findOne({ where: { telegramId: rawId.replace(/^0+(?=\d)/, "") } });
+  return user ? { user } : { error: "Esse usuário ainda não interagiu com o bot. Peça para ele enviar /meuid primeiro." };
+}
+
+async function ensureManager(message, actor) {
+  if (await canManageBot(actor)) return true;
+  await reply(message, "Somente o owner e administradores globais podem usar este comando.");
+  return false;
+}
+
+async function grantAdminCommand(message, actor) {
+  if (!(await ensureManager(message, actor))) return;
+  const target = await resolveTarget(message);
+  if (target.error) return reply(message, target.error);
+  const result = await grantBotAdmin(target.user, actor);
+  if (result.owner) return reply(message, "O owner já possui acesso administrativo permanente.");
+  return reply(message, result.changed ? `✅ ${target.user.name} agora é administrador global.` : `${target.user.name} já é administrador global.`);
+}
+
+async function removeAdminCommand(message, actor) {
+  if (!(await ensureManager(message, actor))) return;
+  const target = await resolveTarget(message);
+  if (target.error) return reply(message, target.error);
+  const result = await revokeBotAdmin(target.user, actor);
+  if (result.owner) return reply(message, "O owner não pode ser removido ou rebaixado.");
+  return reply(message, result.changed ? `✅ ${target.user.name} deixou de ser administrador global.` : `${target.user.name} não é administrador global ativo.`);
+}
+
+async function listAdminsCommand(message, actor) {
+  if (!(await ensureManager(message, actor))) return;
+  const admins = await listActiveBotAdmins();
+  const lines = [`• Owner — ID ${getBotOwnerId()}`, ...admins.map(({ user }) => `• ${user.name} — ID ${user.telegramId}`)];
+  await reply(message, `Administradores globais\n\n${lines.join("\n")}`);
+}
+
+module.exports = { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand, resolveTarget };

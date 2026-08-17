@@ -2,12 +2,12 @@ const { DART_CATALOG_SESSION_DURATION_MS } = require("../config/dartConfig");
 
 const catalogSessions = new Map();
 
-function getSessionKey(clubId, userId) {
-  return `${clubId}:${userId}`;
+function getSessionKey(chatId, userId) {
+  return `${chatId}:${userId}`;
 }
 
-function saveCatalogSession(clubId, userId, sessionData) {
-  const key = getSessionKey(clubId, userId);
+function saveCatalogSession(chatId, userId, sessionData) {
+  const key = getSessionKey(chatId, userId);
 
   catalogSessions.set(key, {
     ...sessionData,
@@ -15,8 +15,8 @@ function saveCatalogSession(clubId, userId, sessionData) {
   });
 }
 
-function getCatalogSession(clubId, userId) {
-  const key = getSessionKey(clubId, userId);
+function getCatalogSession(chatId, userId) {
+  const key = getSessionKey(chatId, userId);
   const session = catalogSessions.get(key);
 
   if (!session) {
@@ -31,12 +31,13 @@ function getCatalogSession(clubId, userId) {
   return session;
 }
 
-function clearCatalogSession(clubId, userId) {
-  catalogSessions.delete(getSessionKey(clubId, userId));
+function clearCatalogSession(chatId, userId) {
+  catalogSessions.delete(getSessionKey(chatId, userId));
 }
 
 module.exports = {
   saveCatalogSession,
   getCatalogSession,
   clearCatalogSession,
+  getSessionKey,
 };

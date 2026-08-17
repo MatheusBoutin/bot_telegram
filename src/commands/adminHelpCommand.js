@@ -7,11 +7,15 @@ async function adminHelpCommand(message) {
     `/darxp quantidade motivo — entrega uma recompensa\n` +
     `/ajustarxp quantidade motivo — corrige o XP\n` +
     `/historico — mostra as alterações manuais\n\n` +
-    `Catálogo de dardos:\n` +
+    `Catálogo global (owner/admin global):\n` +
     `/criarfranquia nome — cria uma franquia\n` +
-    `/franquias — lista as franquias deste grupo\n` +
+    `/franquias — lista as franquias globais\n` +
     `/adicionarpersonagem — abre o cadastro guiado\n` +
-    `/personagens — lista os personagens cadastrados\n\n` +
+    `/personagens — lista os personagens cadastrados\n` +
+    `/daradmin ID — concede administração global\n` +
+    `/removeradmin ID — remove administração global\n` +
+    `/admins — lista administradores globais\n` +
+    `/meuid — mostra seu ID do Telegram\n\n` +
     `Sem responder a uma mensagem:\n` +
     `/desfazerxp ID motivo — desfaz uma transação\n` +
     `/statusxp — mostra as regras de XP\n` +

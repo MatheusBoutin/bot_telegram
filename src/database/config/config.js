@@ -16,8 +16,26 @@ function getDatabaseConfig() {
   };
 }
 
+function getProductionDatabaseConfig() {
+  if (!process.env.DATABASE_URL) {
+    return getDatabaseConfig();
+  }
+
+  return {
+    use_env_variable: "DATABASE_URL",
+    dialect: "postgres",
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    },
+    logging: false,
+  };
+}
+
 module.exports = {
   development: getDatabaseConfig(),
   test: getDatabaseConfig(),
-  production: getDatabaseConfig(),
+  production: getProductionDatabaseConfig(),
 };

@@ -6,6 +6,7 @@
     "start": "node src/index.js",
     "test": "node --test",
     "db:migrate": "sequelize-cli db:migrate",
+    "render:start": "npm run db:migrate && npm start",
     "db:migrate:undo": "sequelize-cli db:migrate:undo"
   },
   "keywords": [],

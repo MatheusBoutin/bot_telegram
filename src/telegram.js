@@ -6,10 +6,14 @@ require("dotenv").config({
   quiet: true,
 });
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
+function getTelegramBotToken() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
 
-if (!token) {
-  throw new Error("O token do Telegram não foi encontrado no arquivo .env.");
+  if (!token) {
+    throw new Error("O token do Telegram não foi encontrado no ambiente.");
+  }
+
+  return token;
 }
 
 function createTelegramError(data, method, statusCode) {
@@ -37,6 +41,8 @@ function createTelegramError(data, method, statusCode) {
 }
 
 function telegramRequest(method, body = null) {
+  const token = getTelegramBotToken();
+
   return new Promise((resolve, reject) => {
     let httpMethod = "GET";
     let requestBody = null;

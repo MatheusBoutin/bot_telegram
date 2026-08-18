@@ -45,7 +45,7 @@ test("envia a ajuda como texto simples para o chat correto", async () => {
 });
 
 test("ajuda apresenta os comandos de XP sem recursos ocultos ou administrativos", () => {
-  for (const command of ["/perfil", "/rank", "/statusxp"]) {
+  for (const command of ["/literaryxp", "/rank", "/statusxp"]) {
     assert.match(HELP_TEXT, new RegExp(command));
   }
 

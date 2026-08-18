@@ -69,7 +69,7 @@ async function handleMessage(message) {
     else if (commandName === "/statusxp") await xpStatusCommand(message, club);
     return;
   }
-  if (commandName === "/perfil") return profileCommand(message, user, member, club);
+  if (commandName === "/literaryxp") return profileCommand(message, user, member, club);
   if (commandName === "/rank") return rankCommand(message, club);
   if (commandName) return;
   if (!isValidXpMessage(message, member) || !canGainXp(member)) return;

@@ -10,9 +10,9 @@ Participe normalmente das conversas do grupo. Mensagens válidas podem entregar 
 Mensagens muito curtas, repetidas ou enviadas rapidamente podem não entregar XP. Use /statusxp para consultar as regras completas.
 
  Perfil
-/perfil — mostra seu XP, nível, título e quantidade de mensagens.
+/literaryxp — mostra seu XP, nível, título e quantidade de mensagens.
 
-/perfil respondendo a alguém — mostra o perfil dessa pessoa no grupo.
+/literaryxp respondendo a alguém — mostra o perfil dessa pessoa no grupo.
 
  Ranking
 /rank — mostra os membros com mais XP no grupo.

@@ -14,7 +14,7 @@ async function adminHelpCommand(message) {
     `/personagens — lista os personagens cadastrados\n` +
     `/daradmin ID — concede administração global\n` +
     `/removeradmin ID — remove administração global\n` +
-    `/admins — lista administradores globais\n` +
+    `/admliterary — lista administradores globais\n` +
     `/meuid — mostra seu ID do Telegram\n\n` +
     `Sem responder a uma mensagem:\n` +
     `/desfazerxp ID motivo — desfaz uma transação\n` +

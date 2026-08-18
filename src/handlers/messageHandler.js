@@ -48,7 +48,7 @@ async function handleMessage(message) {
   if (commandName === "/meuid") return meuidCommand(message);
   if (commandName === "/daradmin") return grantAdminCommand(message, user);
   if (commandName === "/removeradmin") return removeAdminCommand(message, user);
-  if (commandName === "/admins") return listAdminsCommand(message, user);
+  if (commandName === "/admliterary") return listAdminsCommand(message, user);
   if (catalogCommands.has(commandName)) return handleCatalogCommand(message, user, commandName);
 
   if (await handleCatalogUpload(message, user)) return;

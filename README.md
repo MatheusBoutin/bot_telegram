@@ -29,7 +29,7 @@ O backfill de dardos transforma cada saldo antigo em saldo efetivo do dia: regis
 - `/meuid`: mostra o ID do usuário.
 - `/daradmin ID` ou em resposta: concede administração global.
 - `/removeradmin ID` ou em resposta: revoga administração global (nunca o owner).
-- `/admins`: lista owner e administradores ativos.
+- `/admliterary`: lista owner e administradores ativos.
 - `/criarfranquia`, `/franquias`, `/adicionarpersonagem`, `/personagens`: catálogo global, em grupos ou no privado, somente para owner/admin global.
 - `/dardos`: funciona no privado, em grupos e supergrupos; a quota diária é global por usuário.
 

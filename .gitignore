@@ -42,6 +42,7 @@ desktop.ini
 
 # Arquivos locais
 *.local
+.neon
 
 # Banco local / SQLite, caso use futuramente
 *.sqlite

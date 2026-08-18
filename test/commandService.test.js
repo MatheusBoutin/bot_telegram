@@ -9,6 +9,7 @@ test("identifica um comando simples", () => {
 
 test("remove o nome do bot de comandos usados em grupos", () => {
   assert.equal(getCommandName("/darxp@MeuBot 100 motivo"), "/darxp");
+  assert.equal(getCommandName("/trocarfoto@MeuBot"), "/trocarfoto");
 });
 
 test("retorna null para uma mensagem comum", () => {

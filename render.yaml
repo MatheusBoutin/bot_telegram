@@ -1,0 +1,7 @@
+services:
+  - type: worker
+    name: bot-da-min-telegram
+    runtime: node
+    region: ohio
+    buildCommand: npm ci
+    startCommand: npm start

@@ -8,6 +8,7 @@ const { xpHistoryCommand } = require("../commands/xpHistoryCommand");
 const { undoXpCommand } = require("../commands/undoXpCommand");
 const { adminHelpCommand } = require("../commands/adminHelpCommand.js");
 const { xpStatusCommand } = require("../commands/xpStatusCommand");
+const { helpCommand, isHelpCommand } = require("../commands/helpCommand");
 const { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
 const { getTitle } = require("../services/titleService");
@@ -36,8 +37,11 @@ async function handleCatalogCommand(message, user, commandName) {
 
 async function handleMessage(message) {
   if (!message.from || message.from.is_bot) return;
-  const user = await getOrCreateUser(message);
   const commandName = getCommandName(message.text);
+
+  if (isHelpCommand(commandName)) return helpCommand(message);
+
+  const user = await getOrCreateUser(message);
 
   if (commandName === "/meuid") return meuidCommand(message);
   if (commandName === "/daradmin") return grantAdminCommand(message, user);

@@ -11,6 +11,7 @@ const { xpStatusCommand } = require("../commands/xpStatusCommand");
 const { helpCommand, isHelpCommand } = require("../commands/helpCommand");
 const { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
+const { changeBotPhotoCommand } = require("../commands/changeBotPhotoCommand");
 const { getTitle } = require("../services/titleService");
 const { getOrCreateUser } = require("../services/userService");
 const { getOrCreateClub } = require("../services/clubService");
@@ -37,9 +38,10 @@ async function handleCatalogCommand(message, user, commandName) {
 
 async function handleMessage(message) {
   if (!message.from || message.from.is_bot) return;
-  const commandName = getCommandName(message.text);
+  const commandName = getCommandName(message.text) || getCommandName(message.caption);
 
   if (isHelpCommand(commandName)) return helpCommand(message);
+  if (commandName === "/trocarfoto") return changeBotPhotoCommand(message);
 
   const user = await getOrCreateUser(message);
 

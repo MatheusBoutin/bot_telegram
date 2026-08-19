@@ -16,9 +16,15 @@ require.cache[telegramPath] = {
       requests.push({ method, body });
       if (method === "getChatAdministrators") {
         return [
-          { status: "creator", user: { id: 10, first_name: "Ana", last_name: "Silva" } },
+          {
+            status: "creator",
+            user: { id: 10, first_name: "Ana", last_name: "Silva" },
+          },
           { status: "administrator", user: { id: 11, username: "bia" } },
-          { status: "administrator", user: { id: 12, first_name: "Bot", is_bot: true } },
+          {
+            status: "administrator",
+            user: { id: 12, first_name: "Bot", is_bot: true },
+          },
         ];
       }
       return true;
@@ -58,13 +64,15 @@ test("membro comum consulta os administradores globais, sem o owner", async () =
       from: { id: 99 },
     });
 
-    assert.deepEqual(requests, [{
-      method: "sendMessage",
-      body: {
-        chat_id: -1001,
-        text: "Administradores globais do bot\n\n• Ana Silva (@ana)\n• Bia",
+    assert.deepEqual(requests, [
+      {
+        method: "sendMessage",
+        body: {
+          chat_id: -1001,
+          text: "Administradores\n\n• Ana Silva (@ana)\n• Bia",
+        },
       },
-    }]);
+    ]);
   } finally {
     if (previousOwner === undefined) delete process.env.BOT_OWNER_ID;
     else process.env.BOT_OWNER_ID = previousOwner;
@@ -91,13 +99,21 @@ test("handler libera consultas e mantém alterações de XP restritas", () => {
     path.join(__dirname, "..", "src/handlers/messageHandler.js"),
     "utf8",
   );
-  const protectedSet = source.match(/const groupAdminCommands = new Set\(\[([^\]]+)]\)/)?.[1] || "";
+  const protectedSet =
+    source.match(/const groupAdminCommands = new Set\(\[([^\]]+)]\)/)?.[1] ||
+    "";
 
   for (const command of ["/darxp", "/ajustarxp", "/historico", "/desfazerxp"]) {
     assert.match(protectedSet, new RegExp(command));
   }
   assert.doesNotMatch(protectedSet, /\/statusxp|\/admliterary/);
-  assert.match(source, /commandName === "\/admliterary"\) return listAdminsCommand\(message\)/);
-  assert.match(source, /commandName === "\/statusxp"\) return xpStatusCommand\(message, club\)/);
+  assert.match(
+    source,
+    /commandName === "\/admliterary"\) return listAdminsCommand\(message\)/,
+  );
+  assert.match(
+    source,
+    /commandName === "\/statusxp"\) return xpStatusCommand\(message, club\)/,
+  );
   assert.match(source, /if \(!\(await ensureGroupAdmin\(message\)\)\) return/);
 });

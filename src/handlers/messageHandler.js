@@ -12,6 +12,7 @@ const { helpCommand, isHelpCommand } = require("../commands/helpCommand");
 const { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
 const { changeBotPhotoCommand } = require("../commands/changeBotPhotoCommand");
+const { changeBotNameCommand } = require("../commands/changeBotNameCommand");
 const { getTitle } = require("../services/titleService");
 const { getOrCreateUser } = require("../services/userService");
 const { getOrCreateClub } = require("../services/clubService");
@@ -42,6 +43,7 @@ async function handleMessage(message) {
 
   if (isHelpCommand(commandName)) return helpCommand(message);
   if (commandName === "/trocarfoto") return changeBotPhotoCommand(message);
+  if (commandName === "/trocarnome") return changeBotNameCommand(message);
 
   const user = await getOrCreateUser(message);
 

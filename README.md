@@ -1,4 +1,4 @@
-# Bot da Min — Telegram
+# Literary Club bot — Telegram
 
 ## Sobre
 

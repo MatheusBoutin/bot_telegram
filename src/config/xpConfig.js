@@ -6,8 +6,8 @@ const XP_COOLDOWN = 40 * 1000;
 const MIN_MESSAGE_LENGTH = 4;
 const DUPLICATE_COOLDOWN = 120000;
 const MAX_LEVEL = 50;
-const BASE_LEVEL_XP = 100;
-const LEVEL_XP_INCREASE = 25;
+const BASE_LEVEL_XP = 400;
+const LEVEL_XP_INCREASE = 100;
 
 module.exports = {
   XP_MIN,

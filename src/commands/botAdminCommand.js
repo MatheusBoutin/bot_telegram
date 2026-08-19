@@ -105,7 +105,7 @@ async function listAdminsCommand(message) {
 
   return reply(
     message,
-    `Administradores: \n\n${lines.length ? lines.join("\n") : "Nenhum administrador global ativo."}`,
+    `Administradores: ${lines.length ? lines.join("\n") : "Nenhum administrador global ativo."}`,
   );
 }
 

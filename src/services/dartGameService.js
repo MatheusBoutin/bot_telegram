@@ -19,12 +19,23 @@ async function findOrCreateLockedPlayer(userId, transaction) {
 }
 
 function refreshPlayerForDay(player, today) {
-  if (player.dartsRefreshedOn !== today) {
-    player.dartsAvailable = DARTS_PER_DAY;
-    player.dartsRefreshedOn = today;
-    return true;
-  }
-  return false;
+  if (player.dartsRefreshedOn === today) return false;
+
+  const previousDay = player.dartsRefreshedOn
+    ? Date.parse(`${player.dartsRefreshedOn}T00:00:00Z`)
+    : Number.NaN;
+  const currentDay = Date.parse(`${today}T00:00:00Z`);
+  const elapsedDays = Math.floor((currentDay - previousDay) / 86_400_000);
+
+  // Não retrocede o controle caso o relógio/data recebida esteja atrasado.
+  if (Number.isFinite(elapsedDays) && elapsedDays <= 0) return false;
+
+  // Registros antigos podem não ter a data do último crédito. Para eles,
+  // concede apenas a cota atual; nos demais, credita cada dia transcorrido.
+  const daysToCredit = Number.isFinite(elapsedDays) ? elapsedDays : 1;
+  player.dartsAvailable += DARTS_PER_DAY * daysToCredit;
+  player.dartsRefreshedOn = today;
+  return true;
 }
 
 async function getDartPlayer(user, date = new Date()) {
@@ -58,7 +69,7 @@ async function refundDart(user) {
   return sequelize.transaction(async (transaction) => {
     const player = await findOrCreateLockedPlayer(user.id, transaction);
     refreshPlayerForDay(player, getDartDay());
-    player.dartsAvailable = Math.min(DARTS_PER_DAY, player.dartsAvailable + 1);
+    player.dartsAvailable += 1;
     await player.save({ transaction });
     return player;
   });

@@ -134,10 +134,20 @@ function downloadTelegramFile(filePath, maxBytes) {
 }
 
 function redactTelegramSecrets(value) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
   let text = value?.stack || value?.message || String(value);
-  if (token) text = text.split(token).join("[REDACTED]");
-  return text.replace(/api\.telegram\.org\/(?:file\/)?bot[^/\s]+/gi, "api.telegram.org/[REDACTED]");
+  const secrets = [
+    process.env.TELEGRAM_BOT_TOKEN,
+    process.env.DATABASE_URL,
+    process.env.DB_PASSWORD,
+  ].filter(Boolean);
+
+  for (const secret of secrets) {
+    text = text.split(secret).join("[REDACTED]");
+  }
+
+  return text
+    .replace(/api\.telegram\.org\/(?:file\/)?bot[^/\s]+/gi, "api.telegram.org/[REDACTED]")
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[REDACTED_DATABASE_URL]");
 }
 
 module.exports = { telegramRequest, telegramMultipartRequest, downloadTelegramFile, buildMultipartBody, redactTelegramSecrets };

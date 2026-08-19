@@ -17,8 +17,15 @@ require.cache[telegramPath] = {
   },
 };
 
-const { HELP_TEXT, helpCommand, isHelpCommand } = require("../src/commands/helpCommand");
-const { ADMIN_HELP_TEXT, adminHelpCommand } = require("../src/commands/adminHelpCommand");
+const {
+  HELP_TEXT,
+  helpCommand,
+  isHelpCommand,
+} = require("../src/commands/helpCommand");
+const {
+  ADMIN_HELP_TEXT,
+  adminHelpCommand,
+} = require("../src/commands/adminHelpCommand");
 const { getCommandName } = require("../src/services/commandService");
 
 test.beforeEach(() => {
@@ -38,15 +45,19 @@ test("reconhece comando de ajuda direcionado ao bot", () => {
 test("envia a ajuda como texto simples para o chat correto", async () => {
   await helpCommand({ chat: { id: 987654, type: "private" } });
 
-  assert.deepEqual(requests, [{
-    method: "sendMessage",
-    body: { chat_id: 987654, text: HELP_TEXT },
-  }]);
+  assert.deepEqual(requests, [
+    {
+      method: "sendMessage",
+      body: { chat_id: 987654, text: HELP_TEXT },
+    },
+  ]);
   assert.equal(requests[0].body.parse_mode, undefined);
 });
 
 test("ajuda mostra exatamente os comandos disponíveis para membros", () => {
-  assert.equal(HELP_TEXT, `✨ Guia de comandos
+  assert.equal(
+    HELP_TEXT,
+    `✨ Guia de comandos
 
 /literaryxp — mostra seu XP, nível e título
 
@@ -54,12 +65,19 @@ test("ajuda mostra exatamente os comandos disponíveis para membros", () => {
 
 /statusxp — explica como o sistema de XP funciona
 
-/admliterary — mostra os administradores do grupo
+/admliterary — mostra os administradores
 
-/ajuda — abre este guia`);
+/ajuda — abre este guia`,
+  );
 
-  assert.doesNotMatch(HELP_TEXT, /\/darxp|\/ajustarxp|\/historico|\/desfazerxp/i);
-  assert.doesNotMatch(HELP_TEXT, /responda|respondendo|gerenciamento|ajuste de XP/i);
+  assert.doesNotMatch(
+    HELP_TEXT,
+    /\/darxp|\/ajustarxp|\/historico|\/desfazerxp/i,
+  );
+  assert.doesNotMatch(
+    HELP_TEXT,
+    /responda|respondendo|gerenciamento|ajuste de XP/i,
+  );
 });
 
 test("ajuda administrativa separa local e modo de uso", () => {
@@ -69,17 +87,36 @@ test("ajuda administrativa separa local e modo de uso", () => {
   assert.match(ADMIN_HELP_TEXT, /CATÁLOGO — NO GRUPO OU NO PRIVADO/);
 
   for (const command of [
-    "/darxp", "/ajustarxp", "/historico", "/literaryxp", "/desfazerxp",
-    "/statusxp", "/comandosadm", "/meuid", "/daradmin", "/removeradmin",
-    "/admliterary", "/trocarfoto", "/trocarnome", "/criarfranquia",
-    "/franquias", "/adicionarpersonagem", "/personagens",
+    "/darxp",
+    "/ajustarxp",
+    "/historico",
+    "/literaryxp",
+    "/desfazerxp",
+    "/statusxp",
+    "/comandosadm",
+    "/meuid",
+    "/daradmin",
+    "/removeradmin",
+    "/admliterary",
+    "/trocarfoto",
+    "/trocarnome",
+    "/criarfranquia",
+    "/franquias",
+    "/adicionarpersonagem",
+    "/personagens",
   ]) {
     assert.match(ADMIN_HELP_TEXT, new RegExp(command));
   }
 
   assert.match(ADMIN_HELP_TEXT, /não alteram o @username/i);
-  assert.match(ADMIN_HELP_TEXT, /ID de \/desfazerxp.*confirmação ou no \/historico/i);
-  assert.match(ADMIN_HELP_TEXT, /foto com o comando na legenda.*responda a uma foto/i);
+  assert.match(
+    ADMIN_HELP_TEXT,
+    /ID de \/desfazerxp.*confirmação ou no \/historico/i,
+  );
+  assert.match(
+    ADMIN_HELP_TEXT,
+    /foto com o comando na legenda.*responda a uma foto/i,
+  );
   assert.match(ADMIN_HELP_TEXT, /Nome \/ raridade \/ descrição/);
   assert.match(ADMIN_HELP_TEXT, /Nome \| raridade \| descrição/);
 });
@@ -87,10 +124,12 @@ test("ajuda administrativa separa local e modo de uso", () => {
 test("ajuda administrativa é enviada como texto simples para o chat correto", async () => {
   await adminHelpCommand({ chat: { id: -100123456, type: "supergroup" } });
 
-  assert.deepEqual(requests, [{
-    method: "sendMessage",
-    body: { chat_id: -100123456, text: ADMIN_HELP_TEXT },
-  }]);
+  assert.deepEqual(requests, [
+    {
+      method: "sendMessage",
+      body: { chat_id: -100123456, text: ADMIN_HELP_TEXT },
+    },
+  ]);
   assert.equal(requests[0].body.parse_mode, undefined);
 });
 
@@ -106,13 +145,24 @@ test("handler atende ajuda antes de criar usuário, clube, associação ou entre
     path.join(__dirname, "..", "src/handlers/messageHandler.js"),
     "utf8",
   );
-  const helpRoute = handler.indexOf("if (isHelpCommand(commandName)) return helpCommand(message)");
+  const helpRoute = handler.indexOf(
+    "if (isHelpCommand(commandName)) return helpCommand(message)",
+  );
 
   assert.ok(helpRoute >= 0);
-  assert.ok(helpRoute < handler.indexOf("const user = await getOrCreateUser(message)"));
-  assert.ok(helpRoute < handler.indexOf("const club = await getOrCreateClub(message)"));
-  assert.ok(helpRoute < handler.indexOf("const member = await getOrCreateClubMember(user, club)"));
-  assert.ok(helpRoute < handler.indexOf("const result = await addXp(member, message)"));
+  assert.ok(
+    helpRoute < handler.indexOf("const user = await getOrCreateUser(message)"),
+  );
+  assert.ok(
+    helpRoute < handler.indexOf("const club = await getOrCreateClub(message)"),
+  );
+  assert.ok(
+    helpRoute <
+      handler.indexOf("const member = await getOrCreateClubMember(user, club)"),
+  );
+  assert.ok(
+    helpRoute < handler.indexOf("const result = await addXp(member, message)"),
+  );
 });
 
 test("comandos de ajuda retornam antes da entrega automática de XP", () => {
@@ -120,8 +170,18 @@ test("comandos de ajuda retornam antes da entrega automática de XP", () => {
     path.join(__dirname, "..", "src/handlers/messageHandler.js"),
     "utf8",
   );
-  const automaticXp = handler.indexOf("const result = await addXp(member, message)");
+  const automaticXp = handler.indexOf(
+    "const result = await addXp(member, message)",
+  );
 
-  assert.ok(handler.indexOf("if (isHelpCommand(commandName)) return helpCommand(message)") < automaticXp);
-  assert.ok(handler.indexOf('else if (commandName === "/comandosadm") await adminHelpCommand(message)') < automaticXp);
+  assert.ok(
+    handler.indexOf(
+      "if (isHelpCommand(commandName)) return helpCommand(message)",
+    ) < automaticXp,
+  );
+  assert.ok(
+    handler.indexOf(
+      'else if (commandName === "/comandosadm") await adminHelpCommand(message)',
+    ) < automaticXp,
+  );
 });

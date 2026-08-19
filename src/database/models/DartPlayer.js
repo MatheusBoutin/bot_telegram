@@ -11,7 +11,7 @@ const DartPlayer = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: DARTS_PER_DAY,
-      validate: { min: 0, max: DARTS_PER_DAY },
+      validate: { min: 0 },
     },
     dartsRefreshedOn: { type: DataTypes.DATEONLY, allowNull: true },
   },

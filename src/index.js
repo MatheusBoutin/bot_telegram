@@ -4,6 +4,7 @@ const { sequelize } = require("./database/models");
 const { getBotOwnerId } = require("./config/botOwnerConfig");
 const { startHealthServer, closeHealthServer } = require("./http/healthServer");
 const { runPolling } = require("./services/pollingService");
+const { redactTelegramSecrets } = require("./telegram");
 
 let isRunning = true;
 let healthServer;
@@ -65,7 +66,7 @@ async function ensureDatabaseIsMigrated() {
 }
 
 function formatError(error) {
-  return error?.stack || error?.message || String(error);
+  return redactTelegramSecrets(error);
 }
 
 async function closeResources() {

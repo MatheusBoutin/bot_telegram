@@ -69,7 +69,7 @@ test("membro comum consulta os administradores globais, sem o owner", async () =
         method: "sendMessage",
         body: {
           chat_id: -1001,
-          text: "Administradores: • Ana Silva (@ana)\n• Bia",
+          text: "Administradores:\n• Ana Silva (@ana)\n• Bia",
         },
       },
     ]);

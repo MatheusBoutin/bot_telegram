@@ -1,36 +1,88 @@
 # Bot da Min — Telegram
 
-Bot em Node.js 22, CommonJS, Sequelize 6/PostgreSQL e cliente HTTPS nativo da API do Telegram.
+## Sobre
 
-## Configuração
+Bot para clube literário com XP, níveis, títulos e ranking por grupo, além de ferramentas administrativas para manter a comunidade e seu histórico de progressão.
 
-Copie `.env.example` para `.env` e configure as variáveis sem versionar credenciais. `BOT_OWNER_ID` é obrigatório e deve conter o ID numérico da conta Telegram que será owner permanente.
+## Funcionalidades
 
-Para descobrir o ID, inicie temporariamente com um ID numérico válido conhecido ou obtenha o ID pelo Telegram e use `/meuid`. Depois defina definitivamente:
+- XP automático separado por grupo, com ganho de 3 a 7 XP, cooldown de 40 segundos e proteção contra repetição.
+- Níveis, títulos, perfil literário e ranking.
+- Administração de XP com recompensa, ajuste, histórico e reversão.
+- Owner permanente e administradores globais.
+- Alteração do nome e da foto do bot em conversa privada.
+- Deploy no Render com PostgreSQL no Neon e monitoramento HTTP.
+- Catálogo global de personagens e jogo de dardos.
 
-```env
-BOT_OWNER_ID=123456789
-```
+## Tecnologias
 
-O bot falha na inicialização se essa variável estiver ausente ou inválida. O owner é reconhecido implicitamente, não precisa de registro em `bot_admins` e não pode ser revogado.
+- Node.js 22 e CommonJS
+- PostgreSQL e Sequelize
+- Telegram Bot API
+- Render e Neon
 
-## Banco de dados
+## Instalação
 
-```powershell
+Crie um `.env` local a partir de `.env.example`, preencha as variáveis necessárias e execute:
+
+```text
+npm ci
 npm run db:migrate
+npm test
+npm start
 ```
 
-Não aplique migrations diretamente em produção sem backup e janela de manutenção. A migration de catálogo aborta, sem alterar dados, se encontrar o mesmo `normalizedName` em mais de um grupo. A mensagem de erro inclui os conflitos e a consulta de diagnóstico.
+Não inicie o bot localmente enquanto ele estiver rodando no Render com o mesmo token: a API de polling deve ser consumida por apenas uma instância.
 
-O backfill de dardos transforma cada saldo antigo em saldo efetivo do dia: registros atualizados hoje mantêm `clamp(saldo, 0, 3)`; registros antigos equivalem ao refresh diário de 3; para cada usuário é escolhido o menor valor. Assim nenhum usuário recebe dardos extras em razão de possuir vários grupos.
+## Variáveis de ambiente
 
-## Comandos globais
+- `TELEGRAM_BOT_TOKEN`: token fornecido pelo BotFather.
+- `BOT_OWNER_ID`: ID numérico do owner permanente.
+- `DATABASE_URL`: conexão PostgreSQL usada em produção.
+- `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` e `DB_PORT`: conexão usada em desenvolvimento.
+- `PORT`: porta do servidor HTTP; no Render, é fornecida pela plataforma.
+- `NODE_ENV`: ambiente de execução, como `development` ou `production`.
 
-- `/meuid`: mostra o ID do usuário.
-- `/daradmin ID` ou em resposta: concede administração global.
-- `/removeradmin ID` ou em resposta: revoga administração global (nunca o owner).
-- `/admliterary`: lista administradores globais ativos, sem o owner.
-- `/criarfranquia`, `/franquias`, `/adicionarpersonagem`, `/personagens`: catálogo global, em grupos ou no privado, somente para owner/admin global.
-- `/dardos`: funciona no privado, em grupos e supergrupos; a quota diária é global por usuário.
+Em produção, configure `DATABASE_URL`. Em desenvolvimento, configure as variáveis `DB_*`.
 
-XP, perfil, ranking e administração de XP continuam específicos de cada grupo.
+## Comandos
+
+Públicos em grupos:
+
+- `/ajuda` (aliases `/help` e `/start`): guia público.
+- `/literaryxp`: perfil de XP, nível e título do autor; ao responder a outra pessoa, exige administração do grupo.
+- `/rank`: ranking de XP do grupo.
+- `/statusxp`: resumo das regras e estatísticas de XP.
+- `/admliterary`: administradores globais ativos.
+- `/dardos`: inicia o jogo; também funciona no privado.
+
+Administrativos do grupo:
+
+- `/darxp quantidade motivo`: recompensa XP; exige resposta à mensagem do membro.
+- `/ajustarxp quantidade motivo`: corrige XP; exige resposta à mensagem do membro.
+- `/historico`: consulta alterações manuais; exige resposta à mensagem do membro.
+- `/desfazerxp ID motivo`: reverte uma transação pelo ID, sem exigir resposta.
+- `/comandosadm`: abre o guia administrativo.
+
+Exclusivos do owner ou de administradores globais:
+
+- `/daradmin ID` e `/removeradmin ID`: concedem ou revogam acesso global; também aceitam resposta a uma mensagem.
+- `/criarfranquia`, `/franquias`, `/adicionarpersonagem` e `/personagens`: administram o catálogo no grupo ou no privado.
+- `/trocarfoto` e `/trocarnome novo nome`: exclusivos de conversa privada.
+
+`/meuid` mostra o ID do usuário e auxilia a administração global.
+
+## XP
+
+Mensagens válidas entregam aleatoriamente de 3 a 7 XP, no máximo uma vez a cada 40 segundos. Comandos não entregam XP, mensagens repetidas são protegidas por uma janela própria e toda a progressão é separada por grupo. O XP acumulado determina níveis e títulos literários.
+
+## Deploy
+
+O Render executa o serviço e o Neon fornece o PostgreSQL. O build usa `npm ci`; o script `render:start` aplica as migrations e inicia o bot. O endpoint `/health` é usado para monitoramento, e `PORT` é respeitada pelo servidor HTTP. Mantenha somente uma instância usando o token de polling.
+
+## Segurança
+
+- Não versione o arquivo `.env` nem publique o token.
+- Revogue imediatamente qualquer token exposto.
+- Use permissões administrativas com cuidado.
+- Faça backup antes de alterações importantes no banco.

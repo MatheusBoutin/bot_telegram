@@ -1,4 +1,4 @@
-const { telegramRequest } = require("../telegram");
+const { telegramRequest, redactTelegramSecrets } = require("../telegram");
 
 const { handleUpdate } = require("../handlers/updateHandler");
 
@@ -48,7 +48,7 @@ function getPollingRetryDelay(error, consecutiveErrors) {
 }
 
 function formatError(error) {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = redactTelegramSecrets(error);
 
   if (!error?.code) {
     return message;

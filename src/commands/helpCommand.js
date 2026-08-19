@@ -10,7 +10,7 @@ const HELP_TEXT = `✨ Guia de comandos
 
 /statusxp — explica como o sistema de XP funciona
 
-/admliterary — mostra os administradores do grupo
+/admliterary — mostra os administradores globais do bot
 
 /ajuda — abre este guia`;
 

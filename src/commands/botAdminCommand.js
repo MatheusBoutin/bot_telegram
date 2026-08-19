@@ -1,7 +1,13 @@
 const { telegramRequest } = require("../telegram");
 const { User } = require("../database/models");
 const { getOrCreateUserFromTelegramUser } = require("../services/userService");
-const { canManageBot, grantBotAdmin, revokeBotAdmin } = require("../services/botAdminService");
+const {
+  canManageBot,
+  grantBotAdmin,
+  revokeBotAdmin,
+  listActiveBotAdmins,
+  isOwner,
+} = require("../services/botAdminService");
 
 const reply = (message, text) => telegramRequest("sendMessage", { chat_id: message.chat.id, text });
 async function meuidCommand(message) { await reply(message, `Seu ID do Telegram é: ${message.from.id}`); }
@@ -52,16 +58,15 @@ async function listAdminsCommand(message) {
     return reply(message, "Use este comando dentro de um grupo.");
   }
 
-  const administrators = await telegramRequest("getChatAdministrators", {
-    chat_id: message.chat.id,
-  });
+  const administrators = await listActiveBotAdmins();
   const lines = administrators
-    .filter(({ user }) => user && !user.is_bot)
-    .map(({ user }) => `• ${formatTelegramName(user)}`);
+    .map(({ user }) => user)
+    .filter((user) => user && !isOwner(user))
+    .map((user) => `• ${user.name}${user.username ? ` (@${user.username})` : ""}`);
 
   return reply(
     message,
-    `Administradores do grupo\n\n${lines.length ? lines.join("\n") : "Nenhum administrador encontrado."}`,
+    `Administradores globais do bot\n\n${lines.length ? lines.join("\n") : "Nenhum administrador global ativo."}`,
   );
 }
 

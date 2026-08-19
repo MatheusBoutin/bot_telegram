@@ -29,6 +29,7 @@ require.cache[telegramPath] = {
 const models = require(modelsPath);
 const originalClubMemberCount = models.ClubMember.count;
 const originalTransactionCount = models.XpTransaction.count;
+const originalBotAdminFindAll = models.BotAdmin.findAll;
 const { listAdminsCommand } = require("../src/commands/botAdminCommand");
 const { xpStatusCommand } = require("../src/commands/xpStatusCommand");
 
@@ -39,25 +40,35 @@ test.beforeEach(() => {
 test.after(() => {
   models.ClubMember.count = originalClubMemberCount;
   models.XpTransaction.count = originalTransactionCount;
+  models.BotAdmin.findAll = originalBotAdminFindAll;
 });
 
-test("membro comum consulta os administradores do grupo", async () => {
-  await listAdminsCommand({
-    chat: { id: -1001, type: "supergroup" },
-    from: { id: 99 },
-  });
+test("membro comum consulta os administradores globais, sem o owner", async () => {
+  const previousOwner = process.env.BOT_OWNER_ID;
+  process.env.BOT_OWNER_ID = "10";
+  models.BotAdmin.findAll = async () => [
+    { user: { telegramId: "10", name: "Owner", username: "owner" } },
+    { user: { telegramId: "11", name: "Ana Silva", username: "ana" } },
+    { user: { telegramId: "12", name: "Bia", username: null } },
+  ];
 
-  assert.deepEqual(requests[0], {
-    method: "getChatAdministrators",
-    body: { chat_id: -1001 },
-  });
-  assert.deepEqual(requests[1], {
-    method: "sendMessage",
-    body: {
-      chat_id: -1001,
-      text: "Administradores do grupo\n\n• Ana Silva\n• @bia",
-    },
-  });
+  try {
+    await listAdminsCommand({
+      chat: { id: -1001, type: "supergroup" },
+      from: { id: 99 },
+    });
+
+    assert.deepEqual(requests, [{
+      method: "sendMessage",
+      body: {
+        chat_id: -1001,
+        text: "Administradores globais do bot\n\n• Ana Silva (@ana)\n• Bia",
+      },
+    }]);
+  } finally {
+    if (previousOwner === undefined) delete process.env.BOT_OWNER_ID;
+    else process.env.BOT_OWNER_ID = previousOwner;
+  }
 });
 
 test("membro comum consulta o status de XP sem validação administrativa", async () => {

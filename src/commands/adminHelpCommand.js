@@ -14,7 +14,7 @@ NO GRUPO — NÃO PRECISA RESPONDER
 /desfazerxp ID motivo — desfaz uma alteração manual
 O ID de /desfazerxp é o número da transação mostrado na confirmação ou no /historico.
 /statusxp — mostra as regras atuais do sistema de XP
-/admliterary — mostra os administradores do grupo
+/admliterary — mostra os administradores globais do bot
 /comandosadm — abre este guia
 
 NO PRIVADO — OWNER E ADMINISTRADORES GLOBAIS

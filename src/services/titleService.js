@@ -1,47 +1,31 @@
 function getTitle(level) {
-  if (level >= 50) {
-    return "Sábio da Biblioteca";
+  if (level >= 41) {
+    return "Ícone do Squad";
   }
 
-  if (level >= 45) {
-    return "Grão-Mestre do Acervo";
+  if (level >= 31) {
+    return "Bibliotecário";
   }
 
-  if (level >= 40) {
-    return "Arquimago";
+  if (level >= 21) {
+    return "Book Lover";
   }
 
-  if (level >= 35) {
-    return "Mestre Arcano";
+  if (level >= 11) {
+    return "Leitor Ativo";
   }
 
-  if (level >= 30) {
-    return "Guardião do Tomo";
-  }
+  return "Iniciante Literary";
+}
 
-  if (level >= 25) {
-    return "Magíster";
-  }
+function getUnlockedTitle(previousLevel, newLevel) {
+  const previousTitle = getTitle(previousLevel);
+  const newTitle = getTitle(newLevel);
 
-  if (level >= 20) {
-    return "Erudito";
-  }
-
-  if (level >= 15) {
-    return "Escriba Arcano";
-  }
-
-  if (level >= 10) {
-    return "Adepto";
-  }
-
-  if (level >= 5) {
-    return "Iniciado";
-  }
-
-  return "Aprendiz";
+  return previousTitle === newTitle ? null : newTitle;
 }
 
 module.exports = {
   getTitle,
+  getUnlockedTitle,
 };

@@ -13,7 +13,7 @@ const { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, list
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
 const { changeBotPhotoCommand } = require("../commands/changeBotPhotoCommand");
 const { changeBotNameCommand } = require("../commands/changeBotNameCommand");
-const { getTitle } = require("../services/titleService");
+const { getUnlockedTitle } = require("../services/titleService");
 const { getOrCreateUser } = require("../services/userService");
 const { getOrCreateClub } = require("../services/clubService");
 const { getOrCreateClubMember } = require("../services/clubMemberService");
@@ -78,10 +78,9 @@ async function handleMessage(message) {
   const result = await addXp(member, message);
   console.log(`${user.name} ganhou ${result.xpGained} XP em ${club.name}. Total: ${member.xp}`);
   if (result.leveledUp) {
-    const oldTitle = getTitle(result.previousLevel);
-    const newTitle = getTitle(member.level);
+    const newTitle = getUnlockedTitle(result.previousLevel, member.level);
     let text = `🎉 ${user.name} subiu de nível!\n\n⭐ Novo nível: ${member.level}`;
-    if (oldTitle !== newTitle) text += `\n\n🏷️ Novo título desbloqueado:\n${newTitle}`;
+    if (newTitle) text += `\n\n🏷️ Novo título desbloqueado:\n${newTitle}`;
     await telegramRequest("sendMessage", { chat_id: message.chat.id, text });
   }
 }

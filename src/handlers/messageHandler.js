@@ -24,7 +24,7 @@ const { handleCatalogUpload } = require("../services/dartCatalogUploadService");
 const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
 const catalogCommands = new Set(["/criarfranquia", "/franquias", "/adicionarpersonagem", "/personagens"]);
-const groupAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm", "/statusxp"]);
+const groupAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
 
 async function handleCatalogCommand(message, user, commandName) {
   if (!(await canManageBot(user))) {
@@ -44,13 +44,13 @@ async function handleMessage(message) {
   if (isHelpCommand(commandName)) return helpCommand(message);
   if (commandName === "/trocarfoto") return changeBotPhotoCommand(message);
   if (commandName === "/trocarnome") return changeBotNameCommand(message);
+  if (commandName === "/admliterary") return listAdminsCommand(message);
 
   const user = await getOrCreateUser(message);
 
   if (commandName === "/meuid") return meuidCommand(message);
   if (commandName === "/daradmin") return grantAdminCommand(message, user);
   if (commandName === "/removeradmin") return removeAdminCommand(message, user);
-  if (commandName === "/admliterary") return listAdminsCommand(message, user);
   if (catalogCommands.has(commandName)) return handleCatalogCommand(message, user, commandName);
 
   if (await handleCatalogUpload(message, user)) return;
@@ -59,6 +59,7 @@ async function handleMessage(message) {
   // Tudo abaixo é deliberadamente específico de grupo.
   if (!isGroupChat(message.chat)) return;
   const club = await getOrCreateClub(message);
+  if (commandName === "/statusxp") return xpStatusCommand(message, club);
   const member = await getOrCreateClubMember(user, club);
 
   if (groupAdminCommands.has(commandName)) {
@@ -68,7 +69,6 @@ async function handleMessage(message) {
     else if (commandName === "/historico") await xpHistoryCommand(message, club);
     else if (commandName === "/desfazerxp") await undoXpCommand(message, user, club);
     else if (commandName === "/comandosadm") await adminHelpCommand(message);
-    else if (commandName === "/statusxp") await xpStatusCommand(message, club);
     return;
   }
   if (commandName === "/literaryxp") return profileCommand(message, user, member, club);

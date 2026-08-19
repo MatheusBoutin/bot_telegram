@@ -2,25 +2,17 @@ const { telegramRequest } = require("../telegram");
 
 const HELP_COMMANDS = new Set(["/ajuda", "/help", "/start"]);
 
-const HELP_TEXT = `
+const HELP_TEXT = `✨ Guia de comandos
 
-✨ Como ganhar XP
-Participe normalmente das conversas do grupo. Mensagens válidas podem entregar XP e aumentar seu nível.
+/literaryxp — mostra seu XP, nível e título
 
-Mensagens muito curtas, repetidas ou enviadas rapidamente podem não entregar XP. Use /statusxp para consultar as regras completas.
+/rank — mostra o ranking de XP do grupo
 
- Perfil
-/literaryxp — mostra seu XP, nível, título e quantidade de mensagens.
+/statusxp — explica como o sistema de XP funciona
 
-/literaryxp respondendo a alguém — mostra o perfil dessa pessoa no grupo.
+/admliterary — mostra os administradores do grupo
 
- Ranking
-/rank — mostra os membros com mais XP no grupo.
-
- Regras de XP
-/statusxp — explica quanto XP pode ser recebido e quais mensagens são consideradas válidas.
-
- Cada grupo possui seu próprio XP, perfil e ranking.`;
+/ajuda — abre este guia`;
 
 function isHelpCommand(commandName) {
   return HELP_COMMANDS.has(commandName);

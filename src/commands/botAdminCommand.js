@@ -1,8 +1,7 @@
 const { telegramRequest } = require("../telegram");
 const { User } = require("../database/models");
 const { getOrCreateUserFromTelegramUser } = require("../services/userService");
-const { getBotOwnerId } = require("../config/botOwnerConfig");
-const { canManageBot, grantBotAdmin, revokeBotAdmin, listActiveBotAdmins } = require("../services/botAdminService");
+const { canManageBot, grantBotAdmin, revokeBotAdmin } = require("../services/botAdminService");
 
 const reply = (message, text) => telegramRequest("sendMessage", { chat_id: message.chat.id, text });
 async function meuidCommand(message) { await reply(message, `Seu ID do Telegram é: ${message.from.id}`); }
@@ -43,11 +42,27 @@ async function removeAdminCommand(message, actor) {
   return reply(message, result.changed ? `✅ ${target.user.name} deixou de ser administrador global.` : `${target.user.name} não é administrador global ativo.`);
 }
 
-async function listAdminsCommand(message, actor) {
-  if (!(await ensureManager(message, actor))) return;
-  const admins = await listActiveBotAdmins();
-  const lines = [`• Owner — ID ${getBotOwnerId()}`, ...admins.map(({ user }) => `• ${user.name} — ID ${user.telegramId}`)];
-  await reply(message, `Administradores globais\n\n${lines.join("\n")}`);
+function formatTelegramName(user) {
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
+  return fullName || (user.username ? `@${user.username}` : `ID ${user.id}`);
 }
 
-module.exports = { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand, resolveTarget };
+async function listAdminsCommand(message) {
+  if (!["group", "supergroup"].includes(message.chat.type)) {
+    return reply(message, "Use este comando dentro de um grupo.");
+  }
+
+  const administrators = await telegramRequest("getChatAdministrators", {
+    chat_id: message.chat.id,
+  });
+  const lines = administrators
+    .filter(({ user }) => user && !user.is_bot)
+    .map(({ user }) => `• ${formatTelegramName(user)}`);
+
+  return reply(
+    message,
+    `Administradores do grupo\n\n${lines.length ? lines.join("\n") : "Nenhum administrador encontrado."}`,
+  );
+}
+
+module.exports = { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand, resolveTarget, formatTelegramName };

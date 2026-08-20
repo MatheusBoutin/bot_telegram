@@ -1,263 +1,100 @@
 const telegram = require("../telegram");
 const userService = require("../services/userService");
-const dartGameService = require("../services/dartGameService");
+const game = require("../services/dartGameService");
 const { DART_RARITY_LABELS, DART_RARITY_EMOJIS } = require("../config/dartConfig");
-const { DART_ANIMATION_DELAY_MS } = require("../config/dartGameConfig");
+const { DART_ANIMATION_DELAY_MS, ACERVO_BOOK_ANIMATION } = require("../config/dartGameConfig");
 const sessions = require("../services/dartGameSessionService");
-const collectionService = require("../services/dartCollectionService");
+const collection = require("../services/dartCollectionService");
 
-const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const isDartGameCallback = (query) => query.data?.startsWith("darts:") || false;
 
-function formatResultCaption(character, franchise, remaining) {
-  return `🎯 Você acertou: ${character.name}\n\n📚 Franquia: ${franchise.name}\n${DART_RARITY_EMOJIS[character.rarity]} Raridade: ${DART_RARITY_LABELS[character.rarity]}\n\n${character.description}\n\n🎯 Restam ${remaining} ${remaining === 1 ? "dardo" : "dardos"} hoje.`;
-}
-
-function errorDetails(error) {
-  return { code: error?.code || null, description: telegram.redactTelegramSecrets(error) };
+function formatResultCaption(card, franchise, remaining) {
+  return `✨ Você encontrou uma nova carta!\n\n🎴 ${card.name}\n\n📚 Franquia: ${franchise.name}\n${DART_RARITY_EMOJIS[card.rarity]} Raridade: ${DART_RARITY_LABELS[card.rarity]}\n\n${card.description}\n\n📖 Explorações restantes hoje: ${remaining}.`;
 }
 
 function logDraw(level, context, stage, method, error, extra = {}) {
-  console[level](JSON.stringify({
-    event: "dart_draw",
-    updateId: context.updateId ?? null,
-    callbackQueryId: context.callbackQueryId ?? null,
-    chatId: context.chatId ?? null,
-    userId: context.userId ?? null,
-    sessionKey: context.sessionKey ?? null,
-    stage,
-    telegramMethod: method || null,
-    ...extra,
-    ...(error ? errorDetails(error) : {}),
-  }));
+  console[level](JSON.stringify({ event: "acervo_draw", ...context, stage, telegramMethod: method || null, ...extra, ...(error ? { code: error.code || null, description: telegram.redactTelegramSecrets(error) } : {}) }));
 }
 
-function isInvalidTelegramFile(error) {
-  return /wrong file identifier|wrong file identifier\/HTTP URL specified|failed to get HTTP URL content/i
-    .test(error?.message || "");
+function isInvalidTelegramFile(error) { return /wrong file identifier|wrong file identifier\/HTTP URL specified|failed to get HTTP URL content/i.test(error?.message || ""); }
+
+function shelfKeyboard(franchises) {
+  const rows = [];
+  for (let i = 0; i < franchises.length; i += 2) rows.push(franchises.slice(i, i + 2).map(({ franchise }) => ({ text: `📚 ${franchise.name}`, callback_data: `darts:play:${franchise.id}` })));
+  return { inline_keyboard: rows };
 }
 
 function createDartGameCallbackHandler(overrides = {}) {
   const deps = {
-    telegramRequest: telegram.telegramRequest,
-    getOrCreateUser: userService.getOrCreateUser,
-    consumeDart: dartGameService.consumeDart,
-    refundDart: dartGameService.refundDart,
-    findPlayableFranchise: dartGameService.findPlayableFranchise,
-    drawCharacter: dartGameService.drawCharacter,
-    registerObtainedCharacter: collectionService.registerObtainedCharacter,
-    getDartGameSession: sessions.getDartGameSession,
-    saveDartGameSession: sessions.saveDartGameSession,
-    hasProcessedDartCallback: sessions.hasProcessedDartCallback,
-    markDartCallbackProcessed: sessions.markDartCallbackProcessed,
-    releaseDartCallback: sessions.releaseDartCallback,
-    wait: delay,
-    animationDelayMs: DART_ANIMATION_DELAY_MS,
-    ...overrides,
+    telegramRequest: telegram.telegramRequest, getOrCreateUser: userService.getOrCreateUser,
+    consumeDart: game.consumeDart, refundDart: game.refundDart, findPlayableFranchise: game.findPlayableFranchise,
+    getPlayableFranchises: game.getPlayableFranchises, drawCharacter: game.drawCharacter, findActiveCharacter: game.findActiveCharacter,
+    registerObtainedCharacter: collection.registerObtainedCharacter, getDartGameSession: sessions.getDartGameSession,
+    saveDartGameSession: sessions.saveDartGameSession, hasProcessedDartCallback: sessions.hasProcessedDartCallback,
+    markDartCallbackProcessed: sessions.markDartCallbackProcessed, releaseDartCallback: sessions.releaseDartCallback,
+    wait: delay, animationDelayMs: DART_ANIMATION_DELAY_MS, bookAnimation: ACERVO_BOOK_ANIMATION, ...overrides,
   };
+  if (overrides.drawCharacter && !overrides.findActiveCharacter) deps.findActiveCharacter = null;
+  const call = async (method, body, ctx, stage, warning = false) => { try { return await deps.telegramRequest(method, body); } catch (error) { logDraw(warning ? "warn" : "error", ctx, stage, method, error); if (!warning) throw error; return null; } };
+  const answer = (q, ctx, text) => call("answerCallbackQuery", { callback_query_id: q.id, ...(text ? { text } : {}) }, ctx, "answer", true);
+  const notify = (chatId, text, ctx, stage) => call("sendMessage", { chat_id: chatId, text }, ctx, stage, true);
+  const disable = (q, ctx) => q.message?.message_id ? call("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }, ctx, "disable", true) : null;
 
-  async function telegramCall(method, body, drawContext, stage, { warning = false } = {}) {
-    try {
-      return await deps.telegramRequest(method, body);
-    } catch (error) {
-      logDraw(warning ? "warn" : "error", drawContext, stage, method, error);
-      if (!warning) throw error;
-      return null;
-    }
-  }
-
-  async function answer(query, drawContext, text) {
-    const body = { callback_query_id: query.id };
-    if (text) body.text = text;
-    await telegramCall("answerCallbackQuery", body, drawContext, "callback_answer", { warning: true });
-  }
-
-  async function disableButtons(query, drawContext) {
-    if (!query.message?.message_id) return;
-    await telegramCall("editMessageReplyMarkup", {
-      chat_id: query.message.chat.id,
-      message_id: query.message.message_id,
-      reply_markup: { inline_keyboard: [] },
-    }, drawContext, "disable_buttons", { warning: true });
-  }
-
-  async function notify(chatId, text, drawContext, stage) {
-    await telegramCall("sendMessage", { chat_id: chatId, text }, drawContext, stage, { warning: true });
-  }
-
-  return async function handleDartGameCallback(query, updateContext = {}) {
+  return async function handle(query, updateContext = {}) {
     if (!isDartGameCallback(query)) return false;
-    if (!query.message?.chat || !query.from) {
-      await answer(query, { ...updateContext, callbackQueryId: query.id }, "Este sorteio não está mais disponível.");
-      return true;
-    }
-
-    const match = query.data.match(/^darts:play:(\d+)$/);
+    if (!query.message?.chat || !query.from) { await answer(query, updateContext, "Esta exploração não está mais disponível."); return true; }
     const chatId = query.message.chat.id;
-    const baseContext = { ...updateContext, callbackQueryId: query.id, chatId, userId: query.from.id };
-    if (!match) {
-      await answer(query, baseContext);
-      return true;
-    }
-    if (deps.hasProcessedDartCallback(query.id)) {
-      logDraw("warn", baseContext, "duplicate_callback", null, null);
-      await answer(query, baseContext);
-      return true;
-    }
-
     const user = await deps.getOrCreateUser({ chat: query.message.chat, from: query.from });
-    const drawContext = {
-      ...baseContext,
-      userId: user.id,
-      sessionKey: sessions.getSessionKey(chatId, user.id),
-    };
+    const ctx = { ...updateContext, callbackQueryId: query.id, chatId, userId: user.id, sessionKey: sessions.getSessionKey(chatId, user.id) };
     const session = deps.getDartGameSession(chatId, user.id);
-    if (session?.stage === "processing") {
-      await answer(query, drawContext, "O sorteio já está em andamento.");
-      return true;
-    }
-    if (!session || session.stage === "completed" || session.stage === "failed") {
-      await answer(query, drawContext);
-      await notify(chatId, "Esse menu expirou. Use /dardos para abrir um novo sorteio.", drawContext, "expired_session");
-      return true;
-    }
 
-    const franchiseId = Number(match[1]);
-    if (session.stage !== "ready" && session.stage !== "choosing_franchise") {
-      await answer(query, drawContext);
+    if (query.data === "darts:back") {
+      const shelves = await deps.getPlayableFranchises(); await answer(query, ctx);
+      await call("editMessageText", { chat_id: chatId, message_id: query.message.message_id, text: "📚 Acervo Literary\n\nEscolha uma estante:", reply_markup: shelfKeyboard(shelves) }, ctx, "back", true);
+      if (session) deps.saveDartGameSession(chatId, user.id, { ...session, stage: "ready" }); return true;
+    }
+    const select = query.data.match(/^darts:play:(\d+)$/);
+    if (select) {
+      const id = Number(select[1]);
+      if (!session || !session.franchiseIds.includes(id)) { await answer(query, ctx); await notify(chatId, "Esse menu expirou. Use /acervo para iniciar outra exploração.", ctx, "expired"); return true; }
+      const franchise = await deps.findPlayableFranchise(id);
+      if (!franchise) { await answer(query, ctx); await notify(chatId, "Esta estante não está mais disponível. Use /acervo para escolher outra.", ctx, "unavailable"); return true; }
+      deps.saveDartGameSession(chatId, user.id, { ...session, stage: "shelf_selected", franchiseId: id });
+      await answer(query, ctx);
+      await call("sendMessage", { chat_id: chatId, text: `📚 Estante: ${franchise.name}\n\nUm livro chama sua atenção entre os demais.\n\nAbra-o para descobrir qual carta se esconde entre as páginas.`, reply_markup: { inline_keyboard: [[{ text: "📖 Abrir livro", callback_data: `darts:open:${id}` }], [{ text: "⬅️ Voltar às estantes", callback_data: "darts:back" }]] } }, ctx, "shelf");
       return true;
     }
-    if (!session.franchiseIds.includes(franchiseId)) {
-      await answer(query, drawContext);
-      await notify(chatId, "Essa franquia não faz parte deste sorteio. Use /dardos novamente.", drawContext, "invalid_franchise");
-      return true;
-    }
-
-    const processingSession = {
-      ...session,
-      stage: "processing",
-      callbackQueryId: query.id,
-      consumed: false,
-      refunded: false,
-    };
-    deps.saveDartGameSession(chatId, user.id, processingSession);
-    deps.markDartCallbackProcessed(query.id);
-    logDraw("log", drawContext, "processing", null, null);
-    await answer(query, drawContext);
-
-    let franchise;
+    const open = query.data.match(/^darts:open:(\d+)$/);
+    if (!open) { await answer(query, ctx); return true; }
+    if (session?.stage === "processing") { await answer(query, ctx, "A exploração já está em andamento."); return true; }
+    if (deps.hasProcessedDartCallback(query.id)) { await answer(query, ctx); return true; }
+    const franchiseId = Number(open[1]);
+    if (!session || session.stage !== "shelf_selected" || session.franchiseId !== franchiseId) { await answer(query, ctx); await notify(chatId, "Esse menu expirou. Use /acervo para iniciar outra exploração.", ctx, "expired"); return true; }
+    const processing = { ...session, stage: "processing", callbackQueryId: query.id, consumed: false, refunded: false };
+    deps.saveDartGameSession(chatId, user.id, processing); deps.markDartCallbackProcessed(query.id); await answer(query, ctx);
+    const franchise = await deps.findPlayableFranchise(franchiseId);
+    if (!franchise) { deps.saveDartGameSession(chatId, user.id, { ...processing, stage: "failed" }); await disable(query, ctx); await notify(chatId, "Esta estante não está mais disponível. Use /acervo para escolher outra.", ctx, "unavailable"); return true; }
+    const consumed = await deps.consumeDart(user);
+    if (!consumed.consumed) { deps.saveDartGameSession(chatId, user.id, { ...processing, stage: "failed" }); await disable(query, ctx); await notify(chatId, `📚 O acervo encerrou suas explorações por hoje.\n\nNovas explorações: ${game.getRenewalCountdown()}`, ctx, "empty"); return true; }
+    processing.consumed = true; deps.saveDartGameSession(chatId, user.id, processing);
+    const refundOnce = async () => { if (processing.refunded) return; processing.refunded = true; deps.saveDartGameSession(chatId, user.id, processing); await deps.refundDart(user); };
+    let card = await deps.drawCharacter(franchise);
+    if (card && deps.findActiveCharacter) card = await deps.findActiveCharacter(card.id, franchise.id);
+    if (!card) { await refundOnce(); deps.saveDartGameSession(chatId, user.id, { ...processing, stage: "failed" }); await disable(query, ctx); await notify(chatId, "A carta deixou de estar disponível. Sua exploração foi devolvida; use /acervo novamente.", ctx, "card_unavailable"); return true; }
+    await notify(chatId, "📖 Folheando as páginas...", ctx, "page_turn");
+    if (deps.bookAnimation) { const animation = await call("sendAnimation", { chat_id: chatId, animation: deps.bookAnimation }, ctx, "animation", true); if (animation) await deps.wait(deps.animationDelayMs); }
+    else logDraw("warn", ctx, "animation_not_configured", "sendAnimation", null);
+    try { await call("sendPhoto", { chat_id: chatId, photo: card.imageFileId, caption: formatResultCaption(card, franchise, consumed.remainingDarts) }, ctx, "reveal"); }
+    catch (error) { await refundOnce(); deps.saveDartGameSession(chatId, user.id, { ...processing, stage: "failed", characterId: card.id }); await disable(query, ctx); await notify(chatId, "Não consegui revelar esta carta. Sua exploração foi devolvida uma vez.", ctx, "reveal_failed"); return true; }
     try {
-      franchise = await deps.findPlayableFranchise(franchiseId);
-    } catch (error) {
-      deps.saveDartGameSession(chatId, user.id, session);
-      deps.releaseDartCallback(query.id);
-      logDraw("error", drawContext, "find_franchise", null, error);
-      throw error;
-    }
-    if (!franchise) {
-      deps.saveDartGameSession(chatId, user.id, { ...processingSession, stage: "failed" });
-      await disableButtons(query, drawContext);
-      await notify(chatId, "Essa franquia não possui mais personagens disponíveis. Use /dardos novamente.", drawContext, "franchise_unavailable");
-      return true;
-    }
-
-    let dartResult;
-    try {
-      dartResult = await deps.consumeDart(user);
-    } catch (error) {
-      deps.saveDartGameSession(chatId, user.id, session);
-      deps.releaseDartCallback(query.id);
-      logDraw("error", drawContext, "consume", null, error);
-      throw error;
-    }
-    if (!dartResult.consumed) {
-      deps.saveDartGameSession(chatId, user.id, { ...processingSession, stage: "failed" });
-      await disableButtons(query, drawContext);
-      await notify(chatId, "🎯 Seus dardos de hoje acabaram. Volte amanhã!", drawContext, "no_darts");
-      return true;
-    }
-    processingSession.consumed = true;
-    deps.saveDartGameSession(chatId, user.id, processingSession);
-
-    const refundOnce = async (stage) => {
-      if (!processingSession.consumed || processingSession.refunded) return true;
-      processingSession.refunded = true;
-      deps.saveDartGameSession(chatId, user.id, processingSession);
-      try {
-        await deps.refundDart(user);
-        logDraw("log", drawContext, stage, null, null, { refunded: true });
-        return true;
-      } catch (error) {
-        logDraw("error", drawContext, "refund", null, error, { requiresManualRefund: true });
-        return false;
-      }
-    };
-
-    let character;
-    try {
-      character = await deps.drawCharacter(franchise);
-    } catch (error) {
-      logDraw("error", drawContext, "draw_character", null, error);
-    }
-    if (!character) {
-      const refunded = await refundOnce("draw_failed");
-      deps.saveDartGameSession(chatId, user.id, { ...processingSession, stage: "failed" });
-      await disableButtons(query, drawContext);
-      await notify(chatId, refunded
-        ? "Não foi possível sortear um personagem agora. Seu dardo foi devolvido; tente novamente."
-        : "Não foi possível sortear um personagem, e a devolução falhou. O erro foi registrado para correção.",
-      drawContext, "draw_failed_notification");
-      return true;
-    }
-
-    const animation = await telegramCall("sendDice", { chat_id: chatId, emoji: "🎯" }, drawContext, "animation", { warning: true });
-    if (animation) await deps.wait(deps.animationDelayMs);
-    try {
-      await telegramCall("sendPhoto", {
-        chat_id: chatId,
-        photo: character.imageFileId,
-        caption: formatResultCaption(character, franchise, dartResult.remainingDarts),
-      }, drawContext, "reveal");
-    } catch (error) {
-      logDraw("error", drawContext, "reveal_failed", "sendPhoto", error, {
-        characterId: character.id,
-        invalidFileId: isInvalidTelegramFile(error),
-        imageReferenceType: /^https?:\/\//i.test(character.imageFileId) ? "url" : "telegram_file_id",
-      });
-      const refunded = await refundOnce("reveal_failed");
-      deps.saveDartGameSession(chatId, user.id, { ...processingSession, stage: "failed", characterId: character.id });
-      await disableButtons(query, drawContext);
-      await notify(chatId, refunded
-        ? "Não consegui revelar esta carta. Sua tentativa foi devolvida. Tente novamente mais tarde."
-        : "Não consegui revelar esta carta, e a devolução falhou. O erro foi registrado para correção.",
-      drawContext, "reveal_failed_notification");
-      return true;
-    }
-
-    try {
-      await deps.registerObtainedCharacter({ userId: user.id, characterId: character.id });
-    } catch (error) {
-      logDraw("error", drawContext, "collection", null, error, { characterId: character.id });
-      await notify(chatId,
-        "Sua carta foi enviada, mas houve uma falha ao registrá-la na coleção. O erro foi registrado para correção.",
-        drawContext, "collection_failed_notification");
-    }
-    deps.saveDartGameSession(chatId, user.id, {
-      ...processingSession,
-      stage: "completed",
-      characterId: character.id,
-    });
-    logDraw("log", drawContext, "completed", null, null, { characterId: character.id });
-    return true;
+      const entry = await deps.registerObtainedCharacter({ userId: user.id, characterId: card.id });
+      const quantity = Number(entry?.quantity || 1);
+      await notify(chatId, quantity > 1 ? `📚 Esta carta já fazia parte da sua coleção.\n\nAgora você possui ${quantity} cópias.` : "✨ Nova descoberta!\n\nEsta carta foi adicionada à sua /colecao.", ctx, "collection_result");
+    } catch (error) { logDraw("error", ctx, "collection", null, error, { characterId: card.id }); await notify(chatId, "Sua carta foi enviada, mas houve uma falha ao registrá-la na coleção.", ctx, "collection_failed"); }
+    deps.saveDartGameSession(chatId, user.id, { ...processing, stage: "completed", characterId: card.id }); await disable(query, ctx); return true;
   };
 }
 
 const handleDartGameCallback = createDartGameCallbackHandler();
-
-module.exports = {
-  handleDartGameCallback,
-  createDartGameCallbackHandler,
-  formatResultCaption,
-  isDartGameCallback,
-  isInvalidTelegramFile,
-};
+module.exports = { handleDartGameCallback, createDartGameCallbackHandler, formatResultCaption, isDartGameCallback, isInvalidTelegramFile };

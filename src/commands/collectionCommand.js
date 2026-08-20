@@ -26,16 +26,16 @@ function navigationRow({ userId, page, totalPages, franchiseId }) {
 
 function buildSummaryView(summary, userId, requestedPage = 0) {
   if (summary.franchises.length === 0) {
-    return { text: "O catálogo ainda não possui personagens disponíveis.", reply_markup: { inline_keyboard: [] } };
+    return { text: "O catálogo ainda não possui cartas disponíveis.", reply_markup: { inline_keyboard: [] } };
   }
   const totalPages = Math.max(1, Math.ceil(summary.franchises.length / SUMMARY_PAGE_SIZE));
   const page = clampPage(requestedPage, totalPages);
   const visible = summary.franchises.slice(page * SUMMARY_PAGE_SIZE, (page + 1) * SUMMARY_PAGE_SIZE);
   const lines = visible.map((item) => `${escapeHtml(item.name)} — ${item.obtained}/${item.total}${item.obtained === item.total ? " ✅" : ""}`);
-  let text = `🎴 <b>Sua coleção</b>\n\n${lines.join("\n")}\n\n<b>Total: ${summary.obtained}/${summary.total} personagens encontrados</b>`;
+  let text = `🎴 <b>Sua coleção</b>\n\n${lines.join("\n")}\n\n<b>Total: ${summary.obtained}/${summary.total} cartas encontradas</b>`;
   if (totalPages > 1) text += `\n\nPágina ${page + 1}/${totalPages}`;
   text += summary.obtained === 0
-    ? "\n\nUse /dardos para conseguir sua primeira carta."
+    ? "\n\nUse /acervo para encontrar sua primeira carta."
     : "\n\nEscolha uma franquia para ver suas cartas:";
   const franchiseButtons = visible.map((item) => [{
     text: item.name.length > 60 ? `${item.name.slice(0, 59)}…` : item.name,
@@ -62,10 +62,10 @@ function buildFranchiseView(collection, userId, requestedPage = 0) {
   const page = clampPage(requestedPage, totalPages);
   const visible = rows.slice(page * DETAIL_PAGE_SIZE, (page + 1) * DETAIL_PAGE_SIZE);
   const cardLines = visible.map(({ card, archived }) => formatCard(card, archived));
-  let text = `🎴 <b>${escapeHtml(collection.franchise.name)}</b>\n\n<b>Coleção: ${collection.obtainedCount}/${collection.total}</b>`;
+  let text = `🎴 <b>${escapeHtml(collection.franchise.name)}</b>\n\n<b>Coleção: ${collection.obtainedCount}/${collection.total} cartas encontradas</b>`;
   if (cardLines.length) text += `\n\n${cardLines.join("\n")}`;
   const missing = Math.max(0, collection.total - collection.obtainedCount);
-  text += missing > 0 ? `\n\n🔒 Faltam ${missing} ${missing === 1 ? "personagem" : "personagens"}` : "\n\n✅ Franquia completa!";
+  text += missing > 0 ? `\n\n🔒 ${missing === 1 ? "Falta 1 carta" : `Faltam ${missing} cartas`}` : "\n\n✅ Franquia completa!";
   if (collection.archived.length) text += "\n\n🗃️ Cartas arquivadas não contam para a conclusão atual.";
   text += `\n\nPágina ${page + 1}/${totalPages}`;
   return {

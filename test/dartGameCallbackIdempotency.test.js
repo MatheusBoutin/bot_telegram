@@ -7,13 +7,13 @@ const { processUpdateWithRetry } = require("../src/services/pollingService");
 
 const query = (id = "callback-1") => ({
   id,
-  data: "darts:play:7",
+  data: "darts:open:7",
   from: { id: 99, first_name: "Leitora" },
   message: { message_id: 55, chat: { id: 10, type: "private" } },
 });
 
 function harness(options = {}) {
-  let session = { stage: "ready", franchiseIds: [7] };
+  let session = { stage: "shelf_selected", franchiseIds: [7], franchiseId: 7 };
   const processed = new Set();
   const calls = [];
   const counts = { consume: 0, refund: 0, collection: 0 };
@@ -22,7 +22,7 @@ function harness(options = {}) {
   const collectionError = options.collectionError;
   const telegramRequest = async (method, body) => {
     calls.push({ method, body });
-    if (method === "sendDice" && diceError) throw diceError;
+    if (method === "sendAnimation" && diceError) throw diceError;
     if (method === "sendPhoto" && photoError) throw photoError;
     return { ok: true };
   };
@@ -46,6 +46,7 @@ function harness(options = {}) {
     },
     wait: options.wait || (async () => {}),
     animationDelayMs: 0,
+    bookAnimation: "book-file-id",
   });
   return { handler, calls, counts, getSession: () => session };
 }
@@ -56,7 +57,7 @@ test("sorteio normal consome, anima, revela e registra uma vez", async () => {
   const state = harness();
   await state.handler(query(), { updateId: 100 });
   assert.equal(state.counts.consume, 1);
-  assert.equal(methods(state, "sendDice").length, 1);
+  assert.equal(methods(state, "sendAnimation").length, 1);
   assert.equal(methods(state, "sendPhoto").length, 1);
   assert.equal(state.counts.collection, 1);
   assert.equal(state.getSession().stage, "completed");
@@ -68,7 +69,7 @@ test("mesmo callback entregue tres vezes nao repete efeitos", async () => {
   await state.handler(query(), { updateId: 101 });
   await state.handler(query(), { updateId: 101 });
   assert.equal(state.counts.consume, 1);
-  assert.equal(methods(state, "sendDice").length, 1);
+  assert.equal(methods(state, "sendAnimation").length, 1);
   assert.equal(methods(state, "sendPhoto").length, 1);
   assert.equal(state.counts.collection, 1);
 });
@@ -78,13 +79,13 @@ test("dois cliques rapidos avisam que o sorteio esta em andamento", async () => 
   const animationWait = new Promise((resolve) => { releaseAnimation = resolve; });
   const state = harness({ wait: () => animationWait });
   const first = state.handler(query("click-1"), { updateId: 102 });
-  while (methods(state, "sendDice").length === 0) await new Promise((resolve) => setImmediate(resolve));
+  while (methods(state, "sendAnimation").length === 0) await new Promise((resolve) => setImmediate(resolve));
   await state.handler(query("click-2"), { updateId: 103 });
   const inProgress = methods(state, "answerCallbackQuery")
-    .find((call) => call.body.text === "O sorteio já está em andamento.");
+    .find((call) => call.body.text === "A exploração já está em andamento.");
   assert.ok(inProgress);
   assert.equal(state.counts.consume, 1);
-  assert.equal(methods(state, "sendDice").length, 1);
+  assert.equal(methods(state, "sendAnimation").length, 1);
   releaseAnimation();
   await first;
 });
@@ -99,18 +100,18 @@ test("sendPhoto falha depois do alvo, devolve uma vez e retry externo nao repete
     if (attempts < 3) throw new Error("falha posterior simulada");
   });
   assert.equal(attempts, 3);
-  assert.equal(methods(state, "sendDice").length, 1);
+  assert.equal(methods(state, "sendAnimation").length, 1);
   assert.equal(methods(state, "sendPhoto").length, 1);
   assert.equal(state.counts.refund, 1);
   assert.equal(state.counts.collection, 0);
-  assert.equal(methods(state, "sendMessage").length, 1);
+  assert.equal(methods(state, "sendMessage").length, 2);
   assert.equal(state.getSession().stage, "failed");
 });
 
-test("falha cosmetica de sendDice ainda revela e registra a carta", async () => {
+test("falha cosmética de sendAnimation ainda revela e registra a carta", async () => {
   const state = harness({ diceError: Object.assign(new Error("animation unavailable"), { code: 500 }) });
   await state.handler(query("dice-failure"), { updateId: 105 });
-  assert.equal(methods(state, "sendDice").length, 1);
+  assert.equal(methods(state, "sendAnimation").length, 1);
   assert.equal(methods(state, "sendPhoto").length, 1);
   assert.equal(state.counts.consume, 1);
   assert.equal(state.counts.refund, 0);
@@ -121,12 +122,12 @@ test("falha da colecao depois da foto nao devolve nem repete", async () => {
   const state = harness({ collectionError: new Error("relation dart_collection_entries does not exist") });
   await state.handler(query("collection-failure"), { updateId: 106 });
   await state.handler(query("collection-failure"), { updateId: 106 });
-  assert.equal(methods(state, "sendDice").length, 1);
+  assert.equal(methods(state, "sendAnimation").length, 1);
   assert.equal(methods(state, "sendPhoto").length, 1);
   assert.equal(state.counts.consume, 1);
   assert.equal(state.counts.refund, 0);
   assert.equal(state.counts.collection, 1);
-  assert.equal(methods(state, "sendMessage").length, 1);
+  assert.equal(methods(state, "sendMessage").length, 2);
 });
 
 test("identifica erros de file_id invalido sem expor o identificador", () => {

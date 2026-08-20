@@ -1,5 +1,5 @@
 const { telegramRequest } = require("../telegram");
-const { getDartPlayer, getPlayableFranchises } = require("../services/dartGameService");
+const { getDartPlayer, getPlayableFranchises, getRenewalCountdown } = require("../services/dartGameService");
 const { saveDartGameSession } = require("../services/dartGameSessionService");
 
 function buildFranchiseKeyboard(playableFranchises) {
@@ -12,17 +12,17 @@ function buildFranchiseKeyboard(playableFranchises) {
   return { inline_keyboard: rows };
 }
 
-async function dartsCommand(message, user) {
+async function acervoCommand(message, user) {
   const player = await getDartPlayer(user);
   if (player.dartsAvailable <= 0) {
-    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: "🎯 Seus dardos de hoje acabaram. Volte amanhã!" });
+    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: `📚 O acervo encerrou suas explorações por hoje.\n\nNovas explorações: ${getRenewalCountdown()}` });
     return;
   }
   const playableFranchises = await getPlayableFranchises();
   if (playableFranchises.length === 0) {
     await telegramRequest("sendMessage", {
       chat_id: message.chat.id,
-      text: "Ainda não há personagens disponíveis para jogar.\n\nPeça a um administrador global para cadastrar o catálogo.",
+      text: "Ainda não há cartas disponíveis no acervo.\n\nPeça a um administrador global para cadastrar o catálogo.",
     });
     return;
   }
@@ -30,12 +30,12 @@ async function dartsCommand(message, user) {
     stage: "ready",
     franchiseIds: playableFranchises.map(({ franchise }) => franchise.id),
   });
-  const label = player.dartsAvailable === 1 ? "dardo" : "dardos";
   await telegramRequest("sendMessage", {
     chat_id: message.chat.id,
-    text: `🎯 Você tem ${player.dartsAvailable} ${label} hoje.\n\nEscolha a franquia para lançar:`,
+    text: `📚 Acervo Literary\n\nAlgumas histórias só se revelam a quem abre o livro certo.\n\nExplorações disponíveis hoje: ${player.dartsAvailable}/3\n\nEscolha uma estante:`,
     reply_markup: buildFranchiseKeyboard(playableFranchises),
   });
 }
 
-module.exports = { dartsCommand, buildFranchiseKeyboard };
+const dartsCommand = acervoCommand;
+module.exports = { acervoCommand, dartsCommand, buildFranchiseKeyboard };

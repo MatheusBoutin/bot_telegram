@@ -12,7 +12,7 @@ Bot para clube literário com XP, níveis, títulos e ranking por grupo, além d
 - Owner permanente e administradores globais.
 - Alteração do nome e da foto do bot em conversa privada.
 - Deploy no Render com PostgreSQL no Neon e monitoramento HTTP.
-- Catálogo global de personagens e jogo de dardos.
+- Catálogo global de cartas colecionáveis e Acervo Literary.
 
 ## Tecnologias
 
@@ -54,7 +54,8 @@ Públicos em grupos:
 - `/rank`: ranking de XP do grupo.
 - `/statusxp`: resumo das regras e estatísticas de XP.
 - `/admliterary`: administradores globais ativos.
-- `/dardos`: inicia o jogo; também funciona no privado.
+- `/acervo`: explora estantes e encontra cartas; também funciona no privado.
+- `/colecao`: mostra as cartas encontradas.
 
 Administrativos do grupo:
 
@@ -67,7 +68,8 @@ Administrativos do grupo:
 Exclusivos do owner ou de administradores globais:
 
 - `/daradmin ID` e `/removeradmin ID`: concedem ou revogam acesso global; também aceitam resposta a uma mensagem.
-- `/criarfranquia`, `/excluirfranquia`, `/franquias`, `/adicionarpersonagem` e `/personagens`: administram o catálogo no grupo ou no privado.
+- `/criarfranquia` e `/franquias`: criam e listam franquias.
+- `/adicionarcarta`, `/cartas`, `/excluircarta <ID>` e `/excluirfranquia <ID>`: administram o catálogo com arquivamento lógico; os comandos sensíveis funcionam somente no privado.
 - `/trocarfoto` e `/trocarnome novo nome`: exclusivos de conversa privada.
 
 `/meuid` mostra o ID do usuário e auxilia a administração global.

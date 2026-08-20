@@ -29,16 +29,16 @@ test("saldo legado 18 e normalizado no mesmo dia", () => {
 
 test("handler trata dardos antes de criar Club e bloqueia recursos específicos de grupo no privado", () => {
   const source = read("src/handlers/messageHandler.js");
-  assert.ok(source.indexOf('commandName === "/dardos"') < source.indexOf("const club = await getOrCreateClub(message)"));
+  assert.ok(source.indexOf('"/acervo", "/dardos"') < source.indexOf("const club = await getOrCreateClub(message)"));
   assert.match(source, /if \(!isGroupChat\(message\.chat\)\) return;/);
 });
 
-test("catálogo funciona em grupos e privado, sempre com autorização global", () => {
+test("catálogo revalida autorização global e restringe exclusões ao privado", () => {
   const handler = read("src/handlers/messageHandler.js");
   const callback = read("src/handlers/dartCatalogCallbackHandler.js");
   const upload = read("src/services/dartCatalogUploadService.js");
   assert.doesNotMatch(handler, /Administre o catálogo no privado do bot/);
-  assert.doesNotMatch(callback, /chat\.type !== "private"/);
+  assert.match(callback, /chat\.type !== "private"/);
   assert.match(handler, /canManageBot\(user\)/);
   assert.match(callback, /canManageBot\(user\)/);
   assert.match(upload, /canManageBot\(adminUser\)/);

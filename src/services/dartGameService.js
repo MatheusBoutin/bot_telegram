@@ -8,6 +8,14 @@ function getDartDay(date = new Date()) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+function getRenewalCountdown(date = new Date()) {
+  const currentDay = getDartDay(date);
+  let minutes = 1;
+  while (minutes <= 26 * 60 && getDartDay(new Date(date.getTime() + minutes * 60_000)) === currentDay) minutes += 1;
+  const hours = Math.floor(minutes / 60); const remainder = minutes % 60;
+  return hours > 0 ? `${hours}h${remainder ? ` ${remainder}min` : ""}` : `${remainder}min`;
+}
+
 async function findOrCreateLockedPlayer(userId, transaction) {
   const [player, created] = await DartPlayer.findOrCreate({
     where: { userId },
@@ -102,6 +110,10 @@ async function drawCharacter(franchise) {
   return chooseWeightedCharacter(await DartCharacter.findAll({ where: { franchiseId: franchise.id, active: true } }));
 }
 
+async function findActiveCharacter(characterId, franchiseId) {
+  return DartCharacter.findOne({ where: { id: characterId, franchiseId, active: true } });
+}
+
 async function findPlayableFranchise(franchiseId) {
   const franchise = await Franchise.findOne({ where: { id: franchiseId, active: true } });
   if (!franchise) return null;
@@ -109,7 +121,8 @@ async function findPlayableFranchise(franchiseId) {
 }
 
 module.exports = {
-  getDartDay, getDartPlayer, refreshDailyDarts, consumeDart, refundDart,
+  getDartDay, getRenewalCountdown, getDartPlayer, refreshDailyDarts, consumeDart, refundDart,
   getPlayableFranchises, chooseWeightedCharacter, drawCharacter, findPlayableFranchise,
+  findActiveCharacter,
   refreshPlayerForDay,
 };

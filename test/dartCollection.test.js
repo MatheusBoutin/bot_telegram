@@ -72,9 +72,9 @@ test("nomes especiais são escapados para HTML", () => {
 test("coleção vazia mostra 0/N e orientação; catálogo vazio tem mensagem própria", () => {
   const populated = buildSummaryView({ franchises: [{ id: 1, name: "Saga", obtained: 0, total: 3 }], obtained: 0, total: 3 }, 1);
   assert.match(populated.text, /Saga — 0\/3/);
-  assert.match(populated.text, /Use \/dardos/);
+  assert.match(populated.text, /Use \/acervo/);
   const empty = buildSummaryView({ franchises: [], obtained: 0, total: 0 }, 1);
-  assert.equal(empty.text, "O catálogo ainda não possui personagens disponíveis.");
+  assert.equal(empty.text, "O catálogo ainda não possui cartas disponíveis.");
 });
 
 test("paginação limita páginas, navega e oferece voltar", () => {
@@ -119,9 +119,9 @@ test("model e migration são globais, únicos e protegem o histórico", () => {
 
 test("envio bem-sucedido registra depois da foto; falha devolve antes de qualquer registro", () => {
   const handler = source("src/handlers/dartGameCallbackHandler.js");
-  const send = handler.indexOf('await telegramCall("sendPhoto"');
+  const send = handler.indexOf('await call("sendPhoto"');
   const register = handler.indexOf("await deps.registerObtainedCharacter", send);
-  const catchAfterSend = handler.indexOf('refundOnce("reveal_failed")', send);
+  const catchAfterSend = handler.indexOf("await refundOnce()", send);
   assert.ok(send >= 0 && send < register);
   assert.ok(send < catchAfterSend && catchAfterSend < register);
 });

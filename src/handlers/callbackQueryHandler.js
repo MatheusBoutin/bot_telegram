@@ -5,7 +5,7 @@ const { handleDartCatalogCallback } = require("./dartCatalogCallbackHandler");
 const { handleDartGameCallback } = require("./dartGameCallbackHandler");
 const { handleDartCollectionCallback } = require("./dartCollectionCallbackHandler");
 
-async function handleCallbackQuery(callbackQuery) {
+async function handleCallbackQuery(callbackQuery, context = {}) {
   const collectionCallbackHandled = await handleDartCollectionCallback(callbackQuery);
   if (collectionCallbackHandled) return;
 
@@ -15,7 +15,7 @@ async function handleCallbackQuery(callbackQuery) {
     return;
   }
 
-  const dartGameCallbackHandled = await handleDartGameCallback(callbackQuery);
+  const dartGameCallbackHandled = await handleDartGameCallback(callbackQuery, context);
 
   if (dartGameCallbackHandled) {
     return;

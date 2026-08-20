@@ -19,7 +19,11 @@ async function findOrCreateLockedPlayer(userId, transaction) {
 }
 
 function refreshPlayerForDay(player, today) {
-  if (player.dartsRefreshedOn === today) return false;
+  if (player.dartsRefreshedOn === today) {
+    if (player.dartsAvailable <= DARTS_PER_DAY) return false;
+    player.dartsAvailable = DARTS_PER_DAY;
+    return true;
+  }
 
   const previousDay = player.dartsRefreshedOn
     ? Date.parse(`${player.dartsRefreshedOn}T00:00:00Z`)
@@ -30,10 +34,8 @@ function refreshPlayerForDay(player, today) {
   // Não retrocede o controle caso o relógio/data recebida esteja atrasado.
   if (Number.isFinite(elapsedDays) && elapsedDays <= 0) return false;
 
-  // Registros antigos podem não ter a data do último crédito. Para eles,
-  // concede apenas a cota atual; nos demais, credita cada dia transcorrido.
-  const daysToCredit = Number.isFinite(elapsedDays) ? elapsedDays : 1;
-  player.dartsAvailable += DARTS_PER_DAY * daysToCredit;
+  // Todo novo dia redefine a cota; dardos não utilizados não acumulam.
+  player.dartsAvailable = DARTS_PER_DAY;
   player.dartsRefreshedOn = today;
   return true;
 }

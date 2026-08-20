@@ -11,14 +11,20 @@ test("refresh diário global preserva consumo no mesmo dia e renova no dia segui
   assert.equal(refreshPlayerForDay(player, "2026-08-14"), false);
   assert.equal(player.dartsAvailable, 2);
   assert.equal(refreshPlayerForDay(player, "2026-08-15"), true);
-  assert.equal(player.dartsAvailable, 5);
+  assert.equal(player.dartsAvailable, 3);
 });
 
-test("refresh diario acumula tres dardos por dia transcorrido", () => {
+test("refresh diario redefine a cota sem acumular dias transcorridos", () => {
   const player = { dartsAvailable: 2, dartsRefreshedOn: "2026-08-14" };
   assert.equal(refreshPlayerForDay(player, "2026-08-17"), true);
-  assert.equal(player.dartsAvailable, 11);
+  assert.equal(player.dartsAvailable, 3);
   assert.equal(player.dartsRefreshedOn, "2026-08-17");
+});
+
+test("saldo legado 18 e normalizado no mesmo dia", () => {
+  const player = { dartsAvailable: 18, dartsRefreshedOn: "2026-08-17" };
+  assert.equal(refreshPlayerForDay(player, "2026-08-17"), true);
+  assert.equal(player.dartsAvailable, 3);
 });
 
 test("handler trata dardos antes de criar Club e bloqueia recursos específicos de grupo no privado", () => {

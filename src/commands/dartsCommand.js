@@ -27,7 +27,7 @@ async function dartsCommand(message, user) {
     return;
   }
   saveDartGameSession(message.chat.id, user.id, {
-    stage: "choosing_franchise",
+    stage: "ready",
     franchiseIds: playableFranchises.map(({ franchise }) => franchise.id),
   });
   const label = player.dartsAvailable === 1 ? "dardo" : "dardos";

@@ -50,14 +50,14 @@ Em produção, configure `DATABASE_URL`. Em desenvolvimento, configure as variá
 Públicos em grupos:
 
 - `/ajuda` (aliases `/help` e `/start`): guia público.
-- `/literaryxp`: perfil de XP, nível e título do autor; ao responder a outra pessoa, exige administração do grupo.
+- `/literaryxp`: perfil de XP, nível e título do autor; ao responder a outra pessoa, exige administração global do bot.
 - `/rank`: ranking de XP do grupo.
 - `/statusxp`: resumo das regras e estatísticas de XP.
 - `/admliterary`: administradores globais ativos.
 - `/acervo`: explora estantes e encontra cartas; também funciona no privado.
 - `/colecao`: mostra as cartas encontradas.
 
-Administrativos do grupo:
+Exclusivos do owner ou de administradores globais:
 
 - `/darxp quantidade motivo`: recompensa XP; exige resposta à mensagem do membro.
 - `/ajustarxp quantidade motivo`: corrige XP; exige resposta à mensagem do membro.
@@ -65,7 +65,7 @@ Administrativos do grupo:
 - `/desfazerxp ID motivo`: reverte uma transação pelo ID, sem exigir resposta.
 - `/comandosadm`: abre o guia administrativo.
 
-Exclusivos do owner ou de administradores globais:
+Outros comandos exclusivos do owner ou de administradores globais:
 
 - `/daradmin ID` e `/removeradmin ID`: concedem ou revogam acesso global; também aceitam resposta a uma mensagem.
 - `/criarfranquia` e `/franquias`: criam e listam franquias.

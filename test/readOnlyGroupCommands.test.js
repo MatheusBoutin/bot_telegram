@@ -94,13 +94,13 @@ test("membro comum consulta o status de XP sem validação administrativa", asyn
   assert.match(requests[0].body.text, /Status do XP/);
 });
 
-test("handler libera consultas e mantém alterações de XP restritas", () => {
+test("handler libera consultas e restringe comandos administrativos a admins globais", () => {
   const source = fs.readFileSync(
     path.join(__dirname, "..", "src/handlers/messageHandler.js"),
     "utf8",
   );
   const protectedSet =
-    source.match(/const groupAdminCommands = new Set\(\[([^\]]+)]\)/)?.[1] ||
+    source.match(/const globalAdminCommands = new Set\(\[([^\]]+)]\)/)?.[1] ||
     "";
 
   for (const command of ["/darxp", "/ajustarxp", "/historico", "/desfazerxp"]) {
@@ -115,5 +115,6 @@ test("handler libera consultas e mantém alterações de XP restritas", () => {
     source,
     /commandName === "\/statusxp"\) return xpStatusCommand\(message, club\)/,
   );
-  assert.match(source, /if \(!\(await ensureGroupAdmin\(message\)\)\) return/);
+  assert.match(source, /if \(!\(await ensureGlobalAdmin\(message, user\)\)\) return/);
+  assert.doesNotMatch(source, /ensureGroupAdmin/);
 });

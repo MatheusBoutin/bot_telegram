@@ -19,14 +19,23 @@ const { getOrCreateUser } = require("../services/userService");
 const { getOrCreateClub } = require("../services/clubService");
 const { getOrCreateClubMember } = require("../services/clubMemberService");
 const { getCommandName } = require("../services/commandService");
-const { ensureGroupAdmin, isGroupChat } = require("../services/adminService");
+const { isGroupChat } = require("../services/adminService");
 const { canManageBot } = require("../services/botAdminService");
 const { handleCatalogUpload } = require("../services/dartCatalogUploadService");
 const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
 const catalogCommands = new Set(["/criarfranquia", "/excluirfranquia", "/excluircarta", "/franquias", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
 const privateCatalogCommands = new Set(["/excluirfranquia", "/excluircarta", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
-const groupAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
+const globalAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
+
+async function ensureGlobalAdmin(message, user) {
+  if (await canManageBot(user)) return true;
+  await telegramRequest("sendMessage", {
+    chat_id: message.chat.id,
+    text: "Somente o owner e administradores globais do bot podem usar este comando.",
+  });
+  return false;
+}
 
 async function handleCatalogCommand(message, user, commandName) {
   if (privateCatalogCommands.has(commandName) && message.chat.type !== "private") {
@@ -71,8 +80,8 @@ async function handleMessage(message) {
   if (commandName === "/statusxp") return xpStatusCommand(message, club);
   const member = await getOrCreateClubMember(user, club);
 
-  if (groupAdminCommands.has(commandName)) {
-    if (!(await ensureGroupAdmin(message))) return;
+  if (globalAdminCommands.has(commandName)) {
+    if (!(await ensureGlobalAdmin(message, user))) return;
     if (commandName === "/darxp") await grantXpCommand(message, user, club);
     else if (commandName === "/ajustarxp") await adjustXpCommand(message, user, club);
     else if (commandName === "/historico") await xpHistoryCommand(message, club);
@@ -94,4 +103,4 @@ async function handleMessage(message) {
   }
 }
 
-module.exports = { handleMessage, handleCatalogCommand };
+module.exports = { handleMessage, handleCatalogCommand, ensureGlobalAdmin };

@@ -2,7 +2,7 @@ const { telegramRequest } = require("../telegram");
 
 const { getTitle } = require("../services/titleService");
 
-const { ensureGroupAdmin } = require("../services/adminService");
+const { canManageBot } = require("../services/botAdminService");
 
 const { getTargetFromReply } = require("../services/replyTargetService");
 
@@ -16,9 +16,13 @@ async function profileCommand(message, user, member, club) {
     repliedUser && String(repliedUser.id) !== String(message.from.id);
 
   if (isViewingAnotherUser) {
-    const userIsAdmin = await ensureGroupAdmin(message);
+    const userIsAdmin = await canManageBot(user);
 
     if (!userIsAdmin) {
+      await telegramRequest("sendMessage", {
+        chat_id: message.chat.id,
+        text: "Somente o owner e administradores globais do bot podem consultar o perfil de outra pessoa.",
+      });
       return;
     }
 

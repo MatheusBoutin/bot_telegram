@@ -63,6 +63,8 @@ test("ajuda mostra exatamente os comandos disponíveis para membros", () => {
 
 /rank — mostra o ranking de XP do grupo
 
+/colecao — mostra as cartas que você já encontrou
+
 /statusxp — explica como o sistema de XP funciona
 
 /admliterary — mostra os administradores

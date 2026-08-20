@@ -3,8 +3,12 @@ const { telegramRequest } = require("../telegram");
 const { handleDartCatalogCallback } = require("./dartCatalogCallbackHandler");
 
 const { handleDartGameCallback } = require("./dartGameCallbackHandler");
+const { handleDartCollectionCallback } = require("./dartCollectionCallbackHandler");
 
 async function handleCallbackQuery(callbackQuery) {
+  const collectionCallbackHandled = await handleDartCollectionCallback(callbackQuery);
+  if (collectionCallbackHandled) return;
+
   const catalogCallbackHandled = await handleDartCatalogCallback(callbackQuery);
 
   if (catalogCallbackHandled) {

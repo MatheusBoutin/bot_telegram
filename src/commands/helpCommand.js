@@ -8,6 +8,8 @@ const HELP_TEXT = `✨ Guia de comandos
 
 /rank — mostra o ranking de XP do grupo
 
+/colecao — mostra as cartas que você já encontrou
+
 /statusxp — explica como o sistema de XP funciona
 
 /admliterary — mostra os administradores

@@ -2,6 +2,7 @@ const { telegramRequest } = require("../telegram");
 const { profileCommand } = require("../commands/profileCommand");
 const { rankCommand } = require("../commands/rankCommand");
 const { dartsCommand } = require("../commands/dartsCommand");
+const { collectionCommand } = require("../commands/collectionCommand");
 const { grantXpCommand } = require("../commands/grantXpCommand");
 const { adjustXpCommand } = require("../commands/adjustXpCommand");
 const { xpHistoryCommand } = require("../commands/xpHistoryCommand");
@@ -56,6 +57,7 @@ async function handleMessage(message) {
 
   if (await handleCatalogUpload(message, user)) return;
   if (commandName === "/dardos") return dartsCommand(message, user);
+  if (commandName === "/colecao") return collectionCommand(message, user);
 
   // Tudo abaixo é deliberadamente específico de grupo.
   if (!isGroupChat(message.chat)) return;

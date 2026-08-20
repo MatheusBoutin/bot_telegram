@@ -4,6 +4,7 @@ const { consumeDart, refundDart, findPlayableFranchise, drawCharacter } = requir
 const { DART_RARITY_LABELS, DART_RARITY_EMOJIS } = require("../config/dartConfig");
 const { DART_ANIMATION_DELAY_MS } = require("../config/dartGameConfig");
 const { getDartGameSession, saveDartGameSession, clearDartGameSession } = require("../services/dartGameSessionService");
+const { registerObtainedCharacter } = require("../services/dartCollectionService");
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const isDartGameCallback = (query) => query.data?.startsWith("darts:") || false;
@@ -31,8 +32,8 @@ async function handleDartGameCallback(query) {
   }
   if (session.stage === "resolving") return true;
   if (session.stage === "result_ready") {
-    await sendGameResult(query, session.result);
     clearDartGameSession(chatId, user.id);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "Esse sorteio expirou. Use /dardos para jogar novamente." });
     return true;
   }
   const franchiseId = Number(match[1]);
@@ -61,8 +62,32 @@ async function handleDartGameCallback(query) {
     return true;
   }
   const result = { franchise, character, remainingDarts: dartResult.remainingDarts };
-  saveDartGameSession(chatId, user.id, { ...session, stage: "result_ready", result });
-  await sendGameResult(query, result);
+  try {
+    await sendGameResult(query, result);
+  } catch (error) {
+    await refundDart(user);
+    clearDartGameSession(chatId, user.id);
+    console.error("Falha ao enviar carta dos dardos; dardo devolvido:", error);
+    try {
+      await telegramRequest("sendMessage", { chat_id: chatId, text: "Não foi possível enviar sua carta. Seu dardo foi devolvido; tente novamente." });
+    } catch (notificationError) {
+      console.error("Falha ao avisar sobre devolução do dardo:", notificationError);
+    }
+    return true;
+  }
+  try {
+    await registerObtainedCharacter({ userId: user.id, characterId: character.id });
+  } catch (error) {
+    console.error("Carta enviada, mas não foi possível registrar a coleção:", error);
+    try {
+      await telegramRequest("sendMessage", {
+        chat_id: chatId,
+        text: "Sua carta foi enviada, mas houve uma falha ao registrá-la na coleção. O erro foi registrado para correção.",
+      });
+    } catch (notificationError) {
+      console.error("Falha ao avisar sobre erro da coleção:", notificationError);
+    }
+  }
   clearDartGameSession(chatId, user.id);
   return true;
 }

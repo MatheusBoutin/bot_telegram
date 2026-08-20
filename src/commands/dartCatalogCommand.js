@@ -1,6 +1,6 @@
 const { telegramRequest } = require("../telegram");
 const { parseFranchiseName } = require("../services/dartCatalogParser");
-const { createFranchise, listFranchises, countCharacters } = require("../services/dartCatalogService");
+const { createFranchise, deleteFranchise, listFranchises, countCharacters } = require("../services/dartCatalogService");
 
 function createFranchiseKeyboard(franchises, action) {
   const rows = [];
@@ -19,6 +19,18 @@ async function createFranchiseCommand(message, adminUser) {
   return telegramRequest("sendMessage", {
     chat_id: message.chat.id,
     text: result.created ? `✅ Franquia “${result.franchise.name}” criada!\n\nAgora use /adicionarpersonagem para montar o catálogo.` : `A franquia “${result.franchise.name}” já existe no catálogo global.`,
+  });
+}
+
+async function deleteFranchiseCommand(message) {
+  const parsedFranchise = parseFranchiseName(message.text);
+  if (!parsedFranchise.ok) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `Como usar:\n/excluirfranquia Nome da franquia\n\n${parsedFranchise.error}` });
+  const result = await deleteFranchise(parsedFranchise);
+  if (!result) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `A franquia “${parsedFranchise.name}” não foi encontrada no catálogo global.` });
+  const characterLabel = result.characterCount === 1 ? "personagem vinculado também foi excluído" : "personagens vinculados também foram excluídos";
+  return telegramRequest("sendMessage", {
+    chat_id: message.chat.id,
+    text: `✅ Franquia “${result.franchise.name}” excluída!\n\n${result.characterCount} ${characterLabel}.`,
   });
 }
 
@@ -42,4 +54,4 @@ async function listCharactersCommand(message) {
   return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Escolha a franquia que deseja consultar:", reply_markup: createFranchiseKeyboard(franchises, "list") });
 }
 
-module.exports = { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand, createFranchiseKeyboard };
+module.exports = { createFranchiseCommand, deleteFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand, createFranchiseKeyboard };

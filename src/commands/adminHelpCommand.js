@@ -32,6 +32,7 @@ CATÁLOGO — NO GRUPO OU NO PRIVADO
 
 Somente owner e administradores globais:
 /criarfranquia Nome da franquia — cria uma franquia
+/excluirfranquia Nome da franquia — exclui a franquia e seus personagens
 /franquias — lista as franquias
 /adicionarpersonagem — escolha a franquia, envie uma foto com a legenda Nome / raridade / descrição e confirme
 /personagens — escolha uma franquia e veja os personagens

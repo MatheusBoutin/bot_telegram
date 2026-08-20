@@ -101,6 +101,7 @@ test("ajuda administrativa separa local e modo de uso", () => {
     "/trocarfoto",
     "/trocarnome",
     "/criarfranquia",
+    "/excluirfranquia",
     "/franquias",
     "/adicionarpersonagem",
     "/personagens",

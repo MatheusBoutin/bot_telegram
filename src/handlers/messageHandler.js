@@ -9,7 +9,7 @@ const { undoXpCommand } = require("../commands/undoXpCommand");
 const { adminHelpCommand } = require("../commands/adminHelpCommand.js");
 const { xpStatusCommand } = require("../commands/xpStatusCommand");
 const { helpCommand, isHelpCommand } = require("../commands/helpCommand");
-const { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
+const { createFranchiseCommand, deleteFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
 const { changeBotPhotoCommand } = require("../commands/changeBotPhotoCommand");
 const { changeBotNameCommand } = require("../commands/changeBotNameCommand");
@@ -23,7 +23,7 @@ const { canManageBot } = require("../services/botAdminService");
 const { handleCatalogUpload } = require("../services/dartCatalogUploadService");
 const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
-const catalogCommands = new Set(["/criarfranquia", "/franquias", "/adicionarpersonagem", "/personagens"]);
+const catalogCommands = new Set(["/criarfranquia", "/excluirfranquia", "/franquias", "/adicionarpersonagem", "/personagens"]);
 const groupAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
 
 async function handleCatalogCommand(message, user, commandName) {
@@ -32,6 +32,7 @@ async function handleCatalogCommand(message, user, commandName) {
     return;
   }
   if (commandName === "/criarfranquia") await createFranchiseCommand(message, user);
+  else if (commandName === "/excluirfranquia") await deleteFranchiseCommand(message);
   else if (commandName === "/franquias") await listFranchisesCommand(message);
   else if (commandName === "/adicionarpersonagem") await addCharacterCommand(message);
   else if (commandName === "/personagens") await listCharactersCommand(message);

@@ -19,6 +19,29 @@ async function createFranchise({ adminUser, parsedFranchise }) {
   };
 }
 
+async function deleteFranchise(parsedFranchise) {
+  const franchise = await Franchise.findOne({
+    where: {
+      normalizedName: parsedFranchise.normalizedName,
+    },
+  });
+
+  if (!franchise) return null;
+
+  const characterCount = await DartCharacter.count({
+    where: {
+      franchiseId: franchise.id,
+    },
+  });
+
+  await franchise.destroy();
+
+  return {
+    franchise,
+    characterCount,
+  };
+}
+
 async function listFranchises({ activeOnly = false } = {}) {
   const where = {};
 
@@ -87,6 +110,7 @@ async function createDartCharacter({ franchise, adminUser, characterData }) {
 
 module.exports = {
   createFranchise,
+  deleteFranchise,
   listFranchises,
   findActiveFranchise,
   countCharacters,

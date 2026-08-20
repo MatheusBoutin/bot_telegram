@@ -67,7 +67,7 @@ Administrativos do grupo:
 Exclusivos do owner ou de administradores globais:
 
 - `/daradmin ID` e `/removeradmin ID`: concedem ou revogam acesso global; também aceitam resposta a uma mensagem.
-- `/criarfranquia`, `/franquias`, `/adicionarpersonagem` e `/personagens`: administram o catálogo no grupo ou no privado.
+- `/criarfranquia`, `/excluirfranquia`, `/franquias`, `/adicionarpersonagem` e `/personagens`: administram o catálogo no grupo ou no privado.
 - `/trocarfoto` e `/trocarnome novo nome`: exclusivos de conversa privada.
 
 `/meuid` mostra o ID do usuário e auxilia a administração global.

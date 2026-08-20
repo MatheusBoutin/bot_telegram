@@ -1,5 +1,4 @@
 const DARTS_PER_DAY = 3;
-const DARTS_START_DAY = "2026-08-16";
 
 const DARTS_TIME_ZONE = "America/Sao_Paulo";
 
@@ -18,7 +17,6 @@ const DART_RARITY_WEIGHTS = Object.freeze({
 
 module.exports = {
   DARTS_PER_DAY,
-  DARTS_START_DAY,
   DARTS_TIME_ZONE,
   DART_GAME_SESSION_DURATION_MS,
   CARD_REVEAL_DELAY_MS,

@@ -2,9 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const {
-  refreshPlayerForDay, getDartPlayer, consumeDart, getInitialDarts,
-} = require("../src/services/dartGameService");
+const { refreshPlayerForDay, getDartPlayer, consumeDart } = require("../src/services/dartGameService");
 const { sequelize, DartPlayer } = require("../src/database/models");
 
 const read = (relative) => fs.readFileSync(path.join(__dirname, "..", relative), "utf8");
@@ -115,20 +113,16 @@ test("jogador sem marco inicial preserva saldo e inicia o período sem crédito 
   assert.equal(player.dartsAvailable, 3);
 });
 
-test("novo jogador recebe o acumulado inclusivo desde 16/08/2026", () => {
+test("novo jogador começa com três sem crédito retroativo", () => {
   const service = read("src/services/dartGameService.js");
-  assert.equal(getInitialDarts("2026-08-16"), 3);
-  assert.equal(getInitialDarts("2026-08-17"), 6);
-  assert.equal(getInitialDarts("2026-08-20"), 15);
-  assert.equal(getInitialDarts("2026-08-15"), 0);
-  assert.match(service, /defaults: \{ dartsAvailable: getInitialDarts\(today\), dartsRefreshedOn: today \}/);
+  assert.match(service, /defaults: \{ dartsAvailable: DARTS_PER_DAY, dartsRefreshedOn: today \}/);
 });
 
-test("migration credita aos jogadores existentes os dias anteriores ao cadastro", () => {
-  const migration = read("src/database/migrations/20260820000200-backfill-darts-from-bot-start.js");
-  assert.match(migration, /DARTS_START_DAY = "2026-08-16"/);
-  assert.match(migration, /"createdAt" AT TIME ZONE 'America\/Sao_Paulo'/);
-  assert.match(migration, /"dartsAvailable" = "dartsAvailable" \+/);
+test("migration reinicia todos com três na data da aplicação", () => {
+  const migration = read("src/database/migrations/20260820000300-reset-daily-darts.js");
+  assert.match(migration, /const DARTS_PER_DAY = 3/);
+  assert.match(migration, /SET "dartsAvailable" = \$\{DARTS_PER_DAY\}/);
+  assert.match(migration, /"dartsRefreshedOn" = \(CURRENT_TIMESTAMP AT TIME ZONE 'America\/Sao_Paulo'\)::date/);
 });
 
 test("refresh e consumo permanecem transacionais e protegidos por linha", () => {

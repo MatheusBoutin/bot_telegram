@@ -56,3 +56,17 @@ test("recusa uma raridade inexistente", () => {
 
   assert.equal(result.ok, false);
 });
+
+test("aceita descrição de até 1200 caracteres", () => {
+  const result = parseCharacterCaption(`Gimli | lendário | ${"a".repeat(1200)}`);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.description.length, 1200);
+});
+
+test("recusa descrição acima de 1200 caracteres", () => {
+  const result = parseCharacterCaption(`Gimli | lendário | ${"a".repeat(1201)}`);
+
+  assert.equal(result.ok, false);
+  assert.match(result.error, /1200 caracteres/);
+});

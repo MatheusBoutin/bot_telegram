@@ -26,7 +26,7 @@ const DartCharacter = sequelize.define(
     },
 
     description: {
-      type: DataTypes.STRING(600),
+      type: DataTypes.STRING(1200),
       allowNull: false,
     },
 

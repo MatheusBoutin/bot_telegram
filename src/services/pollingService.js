@@ -57,14 +57,14 @@ function formatError(error) {
   return `${message} [código: ${error.code}]`;
 }
 
-async function processUpdateWithRetry(update, shouldContinue) {
+async function processUpdateWithRetry(update, shouldContinue, updateHandler = handleUpdate) {
   for (let attempt = 1; attempt <= UPDATE_MAX_ATTEMPTS; attempt++) {
     if (!shouldContinue()) {
       return false;
     }
 
     try {
-      await handleUpdate(update);
+      await updateHandler(update);
 
       return true;
     } catch (error) {
@@ -152,5 +152,6 @@ async function runPolling(shouldContinue = () => true) {
 
 module.exports = {
   runPolling,
+  processUpdateWithRetry,
   calculatePollingRetryDelay,
 };

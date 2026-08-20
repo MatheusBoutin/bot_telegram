@@ -1,6 +1,8 @@
 const { DART_GAME_SESSION_DURATION_MS } = require("../config/dartGameConfig");
 
 const dartGameSessions = new Map();
+const processedCallbacks = new Map();
+const MAX_PROCESSED_CALLBACKS = 10_000;
 
 function getSessionKey(chatId, userId) {
   return `${chatId}:${userId}`;
@@ -34,9 +36,35 @@ function clearDartGameSession(chatId, userId) {
   dartGameSessions.delete(getSessionKey(chatId, userId));
 }
 
+function pruneProcessedCallbacks(now = Date.now()) {
+  for (const [callbackQueryId, expiresAt] of processedCallbacks) {
+    if (expiresAt <= now) processedCallbacks.delete(callbackQueryId);
+  }
+  while (processedCallbacks.size >= MAX_PROCESSED_CALLBACKS) {
+    processedCallbacks.delete(processedCallbacks.keys().next().value);
+  }
+}
+
+function hasProcessedDartCallback(callbackQueryId) {
+  pruneProcessedCallbacks();
+  return processedCallbacks.has(callbackQueryId);
+}
+
+function markDartCallbackProcessed(callbackQueryId) {
+  pruneProcessedCallbacks();
+  processedCallbacks.set(callbackQueryId, Date.now() + DART_GAME_SESSION_DURATION_MS);
+}
+
+function releaseDartCallback(callbackQueryId) {
+  processedCallbacks.delete(callbackQueryId);
+}
+
 module.exports = {
   saveDartGameSession,
   getDartGameSession,
   clearDartGameSession,
   getSessionKey,
+  hasProcessedDartCallback,
+  markDartCallbackProcessed,
+  releaseDartCallback,
 };

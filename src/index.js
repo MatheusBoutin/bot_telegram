@@ -49,6 +49,7 @@ async function ensureDatabaseIsMigrated() {
     "dart_characters",
     "bot_admins",
     "dart_players",
+    "dart_collection_entries",
   ];
   const tables = await sequelize.getQueryInterface().showAllTables();
   const tableNames = tables.map((table) =>

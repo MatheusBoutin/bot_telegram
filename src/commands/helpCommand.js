@@ -4,13 +4,18 @@ const HELP_COMMANDS = new Set(["/ajuda", "/help", "/start"]);
 
 const HELP_TEXT = `✨ Guia de comandos
 
+/acervo — explore as estantes e encontre novas cartas
+Você recebe três explorações por dia. As explorações não utilizadas ficam acumuladas.
+
+/colecao — veja as cartas que você já encontrou
+
 /literaryxp — mostra seu XP, nível e título
 
 /rank — mostra o ranking de XP do grupo
 
-/statusxp — explica como o sistema de XP funciona
+/statusxp — mostra as regras de XP
 
-/admliterary — mostra os administradores
+/admliterary — mostra os administradores do bot
 
 /ajuda — abre este guia`;
 

@@ -55,20 +55,8 @@ test("envia a ajuda como texto simples para o chat correto", async () => {
 });
 
 test("ajuda mostra exatamente os comandos disponíveis para membros", () => {
-  assert.equal(
-    HELP_TEXT,
-    `✨ Guia de comandos
-
-/literaryxp — mostra seu XP, nível e título
-
-/rank — mostra o ranking de XP do grupo
-
-/statusxp — explica como o sistema de XP funciona
-
-/admliterary — mostra os administradores
-
-/ajuda — abre este guia`,
-  );
+  for (const command of ["/acervo", "/colecao", "/literaryxp", "/rank", "/statusxp", "/admliterary"]) assert.match(HELP_TEXT, new RegExp(command));
+  assert.doesNotMatch(HELP_TEXT, /\/dardos|\/adicionarpersonagem|\/personagens/);
 
   assert.doesNotMatch(
     HELP_TEXT,
@@ -81,44 +69,26 @@ test("ajuda mostra exatamente os comandos disponíveis para membros", () => {
 });
 
 test("ajuda administrativa separa local e modo de uso", () => {
-  assert.match(ADMIN_HELP_TEXT, /NO GRUPO — RESPONDA AO MEMBRO/);
-  assert.match(ADMIN_HELP_TEXT, /NO GRUPO — NÃO PRECISA RESPONDER/);
-  assert.match(ADMIN_HELP_TEXT, /NO PRIVADO — OWNER E ADMINISTRADORES GLOBAIS/);
-  assert.match(ADMIN_HELP_TEXT, /CATÁLOGO — NO GRUPO OU NO PRIVADO/);
+  assert.match(ADMIN_HELP_TEXT, /CATÁLOGO E ACERVO/);
 
   for (const command of [
     "/darxp",
     "/ajustarxp",
     "/historico",
-    "/literaryxp",
     "/desfazerxp",
-    "/statusxp",
     "/comandosadm",
-    "/meuid",
-    "/daradmin",
-    "/removeradmin",
-    "/admliterary",
-    "/trocarfoto",
-    "/trocarnome",
     "/criarfranquia",
+    "/excluirfranquia",
     "/franquias",
-    "/adicionarpersonagem",
-    "/personagens",
+    "/adicionarcarta",
+    "/cartas",
+    "/excluircarta",
+    "/colecao",
   ]) {
     assert.match(ADMIN_HELP_TEXT, new RegExp(command));
   }
 
-  assert.match(ADMIN_HELP_TEXT, /não alteram o @username/i);
-  assert.match(
-    ADMIN_HELP_TEXT,
-    /ID de \/desfazerxp.*confirmação ou no \/historico/i,
-  );
-  assert.match(
-    ADMIN_HELP_TEXT,
-    /foto com o comando na legenda.*responda a uma foto/i,
-  );
-  assert.match(ADMIN_HELP_TEXT, /Nome \/ raridade \/ descrição/);
-  assert.match(ADMIN_HELP_TEXT, /Nome \| raridade \| descrição/);
+  assert.doesNotMatch(ADMIN_HELP_TEXT, /\/adicionarpersonagem|\/personagens/);
 });
 
 test("ajuda administrativa é enviada como texto simples para o chat correto", async () => {

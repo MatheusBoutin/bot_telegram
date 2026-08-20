@@ -6,7 +6,7 @@ const { canManageBot } = require("./botAdminService");
 const { getCatalogSession, saveCatalogSession, clearCatalogSession } = require("./dartCatalogSessionService");
 
 function buildCharacterPreviewCaption(franchise, data) {
-  return `🎯 Prévia do personagem\n\nFranquia: ${franchise.name}\nNome: ${data.name}\n${DART_RARITY_EMOJIS[data.rarity]} Raridade: ${DART_RARITY_LABELS[data.rarity]}\n\n${data.description}\n\nConfirme ou cancele o cadastro.`;
+  return `🎴 Prévia da carta\n\nFranquia: ${franchise.name}\nNome: ${data.name}\n${DART_RARITY_EMOJIS[data.rarity]} Raridade: ${DART_RARITY_LABELS[data.rarity]}\n\n${data.description}\n\nConfirme ou cancele o cadastro.`;
 }
 
 async function handleCatalogUpload(message, adminUser) {
@@ -22,7 +22,7 @@ async function handleCatalogUpload(message, adminUser) {
   const command = message.text?.trim().split(/\s+/, 1)[0].split("@")[0].toLowerCase();
   if (command === "/cancelar") {
     clearCatalogSession(chatId, adminUser.id);
-    await telegramRequest("sendMessage", { chat_id: chatId, text: "Cadastro de personagem cancelado." });
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "Cadastro de carta cancelado." });
     return true;
   }
   if (!Array.isArray(message.photo) || message.photo.length === 0) return false;
@@ -38,7 +38,7 @@ async function handleCatalogUpload(message, adminUser) {
   const franchise = await findActiveFranchise(session.franchiseId);
   if (!franchise) {
     clearCatalogSession(chatId, adminUser.id);
-    await telegramRequest("sendMessage", { chat_id: chatId, text: "A franquia não está mais disponível. Inicie novamente com /adicionarpersonagem." });
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "A franquia não está mais disponível. Inicie novamente com /adicionarcarta." });
     return true;
   }
   const photo = message.photo.at(-1);

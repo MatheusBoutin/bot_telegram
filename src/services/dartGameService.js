@@ -1,5 +1,7 @@
 const { sequelize, DartPlayer, Franchise, DartCharacter } = require("../database/models");
-const { DARTS_PER_DAY, DARTS_TIME_ZONE, DART_RARITY_WEIGHTS } = require("../config/dartGameConfig");
+const {
+  DARTS_PER_DAY, DARTS_START_DAY, DARTS_TIME_ZONE, DART_RARITY_WEIGHTS,
+} = require("../config/dartGameConfig");
 
 function getDartDay(date = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
@@ -8,10 +10,27 @@ function getDartDay(date = new Date()) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-async function findOrCreateLockedPlayer(userId, transaction) {
+function getRenewalCountdown(date = new Date()) {
+  const currentDay = getDartDay(date);
+  let minutes = 1;
+  while (minutes <= 26 * 60 && getDartDay(new Date(date.getTime() + minutes * 60_000)) === currentDay) minutes += 1;
+  const hours = Math.floor(minutes / 60); const remainder = minutes % 60;
+  return hours > 0 ? `${hours}h${remainder ? ` ${remainder}min` : ""}` : `${remainder}min`;
+}
+
+function getInitialDarts(day) {
+  const startDay = Date.parse(`${DARTS_START_DAY}T00:00:00Z`);
+  const targetDay = Date.parse(`${day}T00:00:00Z`);
+  const elapsedDays = Math.floor((targetDay - startDay) / 86_400_000);
+  return Number.isFinite(elapsedDays) && elapsedDays >= 0
+    ? (elapsedDays + 1) * DARTS_PER_DAY
+    : 0;
+}
+
+async function findOrCreateLockedPlayer(userId, transaction, today = getDartDay()) {
   const [player, created] = await DartPlayer.findOrCreate({
     where: { userId },
-    defaults: { dartsAvailable: DARTS_PER_DAY, dartsRefreshedOn: getDartDay() },
+    defaults: { dartsAvailable: getInitialDarts(today), dartsRefreshedOn: today },
     transaction,
   });
   if (!created) await player.reload({ transaction, lock: transaction.LOCK.UPDATE });
@@ -19,6 +38,10 @@ async function findOrCreateLockedPlayer(userId, transaction) {
 }
 
 function refreshPlayerForDay(player, today) {
+  if (!player.dartsRefreshedOn) {
+    player.dartsRefreshedOn = today;
+    return true;
+  }
   if (player.dartsRefreshedOn === today) return false;
 
   const previousDay = player.dartsRefreshedOn
@@ -28,20 +51,21 @@ function refreshPlayerForDay(player, today) {
   const elapsedDays = Math.floor((currentDay - previousDay) / 86_400_000);
 
   // Não retrocede o controle caso o relógio/data recebida esteja atrasado.
-  if (Number.isFinite(elapsedDays) && elapsedDays <= 0) return false;
+  if (!Number.isFinite(elapsedDays) || elapsedDays <= 0) return false;
 
-  // Registros antigos podem não ter a data do último crédito. Para eles,
-  // concede apenas a cota atual; nos demais, credita cada dia transcorrido.
-  const daysToCredit = Number.isFinite(elapsedDays) ? elapsedDays : 1;
-  player.dartsAvailable += DARTS_PER_DAY * daysToCredit;
-  player.dartsRefreshedOn = today;
+  // Cada data diária completa concede uma nova cota sem limitar o saldo anterior.
+  player.dartsAvailable += elapsedDays * DARTS_PER_DAY;
+  player.dartsRefreshedOn = new Date(previousDay + elapsedDays * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
   return true;
 }
 
 async function getDartPlayer(user, date = new Date()) {
   return sequelize.transaction(async (transaction) => {
-    const player = await findOrCreateLockedPlayer(user.id, transaction);
-    if (refreshPlayerForDay(player, getDartDay(date))) await player.save({ transaction });
+    const today = getDartDay(date);
+    const player = await findOrCreateLockedPlayer(user.id, transaction, today);
+    if (refreshPlayerForDay(player, today)) await player.save({ transaction });
     return player;
   });
 }
@@ -53,8 +77,9 @@ async function refreshDailyDarts(playerOrUser, date = new Date()) {
 
 async function consumeDart(user, date = new Date()) {
   return sequelize.transaction(async (transaction) => {
-    const player = await findOrCreateLockedPlayer(user.id, transaction);
-    refreshPlayerForDay(player, getDartDay(date));
+    const today = getDartDay(date);
+    const player = await findOrCreateLockedPlayer(user.id, transaction, today);
+    refreshPlayerForDay(player, today);
     if (player.dartsAvailable <= 0) {
       await player.save({ transaction });
       return { consumed: false, remainingDarts: 0, player };
@@ -100,6 +125,10 @@ async function drawCharacter(franchise) {
   return chooseWeightedCharacter(await DartCharacter.findAll({ where: { franchiseId: franchise.id, active: true } }));
 }
 
+async function findActiveCharacter(characterId, franchiseId) {
+  return DartCharacter.findOne({ where: { id: characterId, franchiseId, active: true } });
+}
+
 async function findPlayableFranchise(franchiseId) {
   const franchise = await Franchise.findOne({ where: { id: franchiseId, active: true } });
   if (!franchise) return null;
@@ -107,7 +136,8 @@ async function findPlayableFranchise(franchiseId) {
 }
 
 module.exports = {
-  getDartDay, getDartPlayer, refreshDailyDarts, consumeDart, refundDart,
+  getDartDay, getRenewalCountdown, getDartPlayer, refreshDailyDarts, consumeDart, refundDart,
   getPlayableFranchises, chooseWeightedCharacter, drawCharacter, findPlayableFranchise,
-  refreshPlayerForDay,
+  findActiveCharacter,
+  refreshPlayerForDay, getInitialDarts,
 };

@@ -1,7 +1,8 @@
 const { telegramRequest } = require("../telegram");
 const { profileCommand } = require("../commands/profileCommand");
 const { rankCommand } = require("../commands/rankCommand");
-const { dartsCommand } = require("../commands/dartsCommand");
+const { acervoCommand } = require("../commands/dartsCommand");
+const { collectionCommand } = require("../commands/collectionCommand");
 const { grantXpCommand } = require("../commands/grantXpCommand");
 const { adjustXpCommand } = require("../commands/adjustXpCommand");
 const { xpHistoryCommand } = require("../commands/xpHistoryCommand");
@@ -9,7 +10,7 @@ const { undoXpCommand } = require("../commands/undoXpCommand");
 const { adminHelpCommand } = require("../commands/adminHelpCommand.js");
 const { xpStatusCommand } = require("../commands/xpStatusCommand");
 const { helpCommand, isHelpCommand } = require("../commands/helpCommand");
-const { createFranchiseCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
+const { createFranchiseCommand, deleteFranchiseCommand, deleteCharacterCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
 const { changeBotPhotoCommand } = require("../commands/changeBotPhotoCommand");
 const { changeBotNameCommand } = require("../commands/changeBotNameCommand");
@@ -23,18 +24,25 @@ const { canManageBot } = require("../services/botAdminService");
 const { handleCatalogUpload } = require("../services/dartCatalogUploadService");
 const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
-const catalogCommands = new Set(["/criarfranquia", "/franquias", "/adicionarpersonagem", "/personagens"]);
+const catalogCommands = new Set(["/criarfranquia", "/excluirfranquia", "/excluircarta", "/franquias", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
+const privateCatalogCommands = new Set(["/excluirfranquia", "/excluircarta", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
 const groupAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
 
 async function handleCatalogCommand(message, user, commandName) {
+  if (privateCatalogCommands.has(commandName) && message.chat.type !== "private") {
+    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Este comando administrativo funciona somente no privado." });
+    return;
+  }
   if (!(await canManageBot(user))) {
     await telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Somente o owner e administradores globais podem administrar o catálogo." });
     return;
   }
   if (commandName === "/criarfranquia") await createFranchiseCommand(message, user);
+  else if (commandName === "/excluirfranquia") await deleteFranchiseCommand(message, user);
+  else if (commandName === "/excluircarta") await deleteCharacterCommand(message, user);
   else if (commandName === "/franquias") await listFranchisesCommand(message);
-  else if (commandName === "/adicionarpersonagem") await addCharacterCommand(message);
-  else if (commandName === "/personagens") await listCharactersCommand(message);
+  else if (["/adicionarcarta", "/adicionarpersonagem"].includes(commandName)) await addCharacterCommand(message);
+  else if (["/cartas", "/personagens"].includes(commandName)) await listCharactersCommand(message);
 }
 
 async function handleMessage(message) {
@@ -54,7 +62,8 @@ async function handleMessage(message) {
   if (catalogCommands.has(commandName)) return handleCatalogCommand(message, user, commandName);
 
   if (await handleCatalogUpload(message, user)) return;
-  if (commandName === "/dardos") return dartsCommand(message, user);
+  if (["/acervo", "/dardos"].includes(commandName)) return acervoCommand(message, user);
+  if (commandName === "/colecao") return collectionCommand(message, user);
 
   // Tudo abaixo é deliberadamente específico de grupo.
   if (!isGroupChat(message.chat)) return;

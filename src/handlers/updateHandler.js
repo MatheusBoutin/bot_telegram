@@ -9,7 +9,7 @@ async function handleUpdate(update) {
   }
 
   if (update.callback_query) {
-    await handleCallbackQuery(update.callback_query);
+    await handleCallbackQuery(update.callback_query, { updateId: update.update_id });
   }
 }
 

@@ -126,7 +126,7 @@ test("handler intercepta trocarnome antes de criação, sessões e XP", () => {
   for (const marker of [
     "getOrCreateUser(message)",
     "handleCatalogUpload(message, user)",
-    "dartsCommand(message, user)",
+    "acervoCommand(message, user)",
     "getOrCreateClub(message)",
     "getOrCreateClubMember(user, club)",
     "addXp(member, message)",

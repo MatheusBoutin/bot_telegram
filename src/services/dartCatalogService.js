@@ -1,4 +1,4 @@
-const { Franchise, DartCharacter } = require("../database/models");
+const { sequelize, Franchise, DartCharacter } = require("../database/models");
 
 async function createFranchise({ adminUser, parsedFranchise }) {
   const [franchise, created] = await Franchise.findOrCreate({
@@ -17,6 +17,34 @@ async function createFranchise({ adminUser, parsedFranchise }) {
     franchise,
     created,
   };
+}
+
+async function findCharacterById(id) {
+  return DartCharacter.findByPk(id, { include: [{ model: Franchise, as: "franchise", required: true }] });
+}
+
+async function findFranchiseById(id) { return Franchise.findByPk(id); }
+
+async function archiveCharacter(id) {
+  return sequelize.transaction(async (transaction) => {
+    const character = await DartCharacter.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
+    if (!character) return null;
+    if (!character.active) return { character, changed: false };
+    await character.update({ active: false }, { transaction });
+    return { character, changed: true };
+  });
+}
+
+async function archiveFranchise(id) {
+  return sequelize.transaction(async (transaction) => {
+    const franchise = await Franchise.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });
+    if (!franchise) return null;
+    if (!franchise.active) return { franchise, changed: false, characterCount: 0 };
+    const characterCount = await DartCharacter.count({ where: { franchiseId: id, active: true }, transaction });
+    await franchise.update({ active: false }, { transaction });
+    await DartCharacter.update({ active: false }, { where: { franchiseId: id, active: true }, transaction });
+    return { franchise, changed: true, characterCount };
+  });
 }
 
 async function listFranchises({ activeOnly = false } = {}) {
@@ -67,7 +95,6 @@ async function listCharacters(franchise, { activeOnly = false } = {}) {
       ["name", "ASC"],
     ],
 
-    limit: 20,
   });
 }
 
@@ -92,4 +119,8 @@ module.exports = {
   countCharacters,
   listCharacters,
   createDartCharacter,
+  findCharacterById,
+  findFranchiseById,
+  archiveCharacter,
+  archiveFranchise,
 };

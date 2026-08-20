@@ -6,17 +6,18 @@ const {
   DART_RARITY_EMOJIS,
 } = require("../config/dartConfig");
 const {
-  DART_ANIMATION_DELAY_MS,
+  CARD_REVEAL_DELAY_MS,
   ACERVO_BOOK_ANIMATION,
 } = require("../config/dartGameConfig");
 const sessions = require("../services/dartGameSessionService");
 const collection = require("../services/dartCollectionService");
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 const isDartGameCallback = (query) => query.data?.startsWith("darts:") || false;
 
 function formatResultCaption(card, franchise, remaining) {
-  return `✨ Você encontrou uma nova carta!\n\n🎴 ${card.name}\n\n📚 Franquia: ${franchise.name}\n${DART_RARITY_EMOJIS[card.rarity]} Raridade: ${DART_RARITY_LABELS[card.rarity]}\n\n${card.description}\n\n📖 Explorações restantes hoje: ${remaining}.`;
+  return `✨ Você encontrou uma nova carta!\n\n🎴 ${card.name}\n\n📚 Franquia: ${franchise.name}\n${DART_RARITY_EMOJIS[card.rarity]} Raridade: ${DART_RARITY_LABELS[card.rarity]}\n\n${card.description}\n\n📖 Explorações disponíveis: ${remaining}.`;
 }
 
 function logDraw(level, context, stage, method, error, extra = {}) {
@@ -73,8 +74,8 @@ function createDartGameCallbackHandler(overrides = {}) {
     hasProcessedDartCallback: sessions.hasProcessedDartCallback,
     markDartCallbackProcessed: sessions.markDartCallbackProcessed,
     releaseDartCallback: sessions.releaseDartCallback,
-    wait: delay,
-    animationDelayMs: DART_ANIMATION_DELAY_MS,
+    delay,
+    cardRevealDelayMs: CARD_REVEAL_DELAY_MS,
     bookAnimation: ACERVO_BOOK_ANIMATION,
     ...overrides,
   };
@@ -269,7 +270,7 @@ function createDartGameCallbackHandler(overrides = {}) {
       await disable(query, ctx);
       await notify(
         chatId,
-        `📚 O acervo encerrou suas explorações por hoje.\n\nNovas explorações: ${game.getRenewalCountdown()}`,
+        `📚 Você não possui explorações disponíveis.\n\nNovas explorações: ${game.getRenewalCountdown()}`,
         ctx,
         "empty",
       );
@@ -301,7 +302,6 @@ function createDartGameCallbackHandler(overrides = {}) {
       );
       return true;
     }
-    await notify(chatId, "📖", ctx, "page_turn");
     if (deps.bookAnimation) {
       const animation = await call(
         "sendAnimation",
@@ -310,9 +310,12 @@ function createDartGameCallbackHandler(overrides = {}) {
         "animation",
         true,
       );
-      if (animation) await deps.wait(deps.animationDelayMs);
-    } else
+      if (!animation) await notify(chatId, "📖", ctx, "animation_fallback");
+    } else {
       logDraw("warn", ctx, "animation_not_configured", "sendAnimation", null);
+      await notify(chatId, "📖", ctx, "animation_fallback");
+    }
+    await deps.delay(deps.cardRevealDelayMs);
     try {
       await call(
         "sendPhoto",

@@ -15,7 +15,7 @@ function buildFranchiseKeyboard(playableFranchises) {
 async function acervoCommand(message, user) {
   const player = await getDartPlayer(user);
   if (player.dartsAvailable <= 0) {
-    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: `📚 O acervo encerrou suas explorações por hoje.\n\nNovas explorações: ${getRenewalCountdown()}` });
+    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: `📚 Você não possui explorações disponíveis.\n\nNovas explorações: ${getRenewalCountdown()}` });
     return;
   }
   const playableFranchises = await getPlayableFranchises();
@@ -32,7 +32,7 @@ async function acervoCommand(message, user) {
   });
   await telegramRequest("sendMessage", {
     chat_id: message.chat.id,
-    text: `📚 Acervo Literary\n\nAlgumas histórias só se revelam a quem abre o livro certo.\n\nExplorações disponíveis hoje: ${player.dartsAvailable}/3\n\nEscolha uma estante:`,
+    text: `📚 Acervo Literary\n\nAlgumas histórias só se revelam a quem abre o livro certo.\n\n📖 Explorações disponíveis: ${player.dartsAvailable}\n\nEscolha uma estante:`,
     reply_markup: buildFranchiseKeyboard(playableFranchises),
   });
 }

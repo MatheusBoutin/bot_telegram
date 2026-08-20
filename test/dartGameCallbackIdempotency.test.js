@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createDartGameCallbackHandler, isInvalidTelegramFile } = require("../src/handlers/dartGameCallbackHandler");
+const { CARD_REVEAL_DELAY_MS } = require("../src/config/dartGameConfig");
 const { processUpdateWithRetry } = require("../src/services/pollingService");
 
 const query = (id = "callback-1") => ({
@@ -16,12 +17,15 @@ function harness(options = {}) {
   let session = { stage: "shelf_selected", franchiseIds: [7], franchiseId: 7 };
   const processed = new Set();
   const calls = [];
+  const events = [];
+  const delayCalls = [];
   const counts = { consume: 0, refund: 0, collection: 0 };
   const photoError = options.photoError;
   const diceError = options.diceError;
   const collectionError = options.collectionError;
   const telegramRequest = async (method, body) => {
     calls.push({ method, body });
+    events.push(method);
     if (method === "sendAnimation" && diceError) throw diceError;
     if (method === "sendPhoto" && photoError) throw photoError;
     return { ok: true };
@@ -35,20 +39,23 @@ function harness(options = {}) {
     markDartCallbackProcessed: (id) => processed.add(id),
     releaseDartCallback: (id) => processed.delete(id),
     findPlayableFranchise: async () => ({ id: 7, name: "Saga" }),
-    consumeDart: async () => { counts.consume += 1; return { consumed: true, remainingDarts: 2 }; },
+    consumeDart: options.consumeDart || (async () => { counts.consume += 1; return { consumed: true, remainingDarts: 2 }; }),
     refundDart: async () => { counts.refund += 1; },
     drawCharacter: async () => ({
       id: 8, name: "Heroína", rarity: "rare", description: "Descrição", imageFileId: "telegram-file-id",
     }),
     registerObtainedCharacter: async () => {
       counts.collection += 1;
+      events.push("registerCollection");
       if (collectionError) throw collectionError;
     },
-    wait: options.wait || (async () => {}),
-    animationDelayMs: 0,
+    delay: options.delay || (async (milliseconds) => {
+      delayCalls.push(milliseconds);
+      events.push("delay");
+    }),
     bookAnimation: "book-file-id",
   });
-  return { handler, calls, counts, getSession: () => session };
+  return { handler, calls, counts, events, delayCalls, getSession: () => session };
 }
 
 const methods = (state, method) => state.calls.filter((call) => call.method === method);
@@ -61,6 +68,21 @@ test("sorteio normal consome, anima, revela e registra uma vez", async () => {
   assert.equal(methods(state, "sendPhoto").length, 1);
   assert.equal(state.counts.collection, 1);
   assert.equal(state.getSession().stage, "completed");
+  assert.deepEqual(state.delayCalls, [2000]);
+  assert.ok(state.events.indexOf("sendAnimation") < state.events.indexOf("delay"));
+  assert.ok(state.events.indexOf("delay") < state.events.indexOf("sendPhoto"));
+  assert.ok(state.events.indexOf("sendPhoto") < state.events.indexOf("registerCollection"));
+});
+
+test("configura exatamente dois segundos sem fazer o teste esperar em tempo real", () => {
+  assert.equal(CARD_REVEAL_DELAY_MS, 2000);
+});
+
+test("escolha da estante não utiliza o delay da revelação", async () => {
+  const state = harness();
+  await state.handler({ ...query("select-shelf"), data: "darts:play:7" }, { updateId: 99 });
+  assert.deepEqual(state.delayCalls, []);
+  assert.equal(methods(state, "sendPhoto").length, 0);
 });
 
 test("mesmo callback entregue tres vezes nao repete efeitos", async () => {
@@ -77,7 +99,7 @@ test("mesmo callback entregue tres vezes nao repete efeitos", async () => {
 test("dois cliques rapidos avisam que o sorteio esta em andamento", async () => {
   let releaseAnimation;
   const animationWait = new Promise((resolve) => { releaseAnimation = resolve; });
-  const state = harness({ wait: () => animationWait });
+  const state = harness({ delay: () => animationWait });
   const first = state.handler(query("click-1"), { updateId: 102 });
   while (methods(state, "sendAnimation").length === 0) await new Promise((resolve) => setImmediate(resolve));
   await state.handler(query("click-2"), { updateId: 103 });
@@ -104,7 +126,7 @@ test("sendPhoto falha depois do alvo, devolve uma vez e retry externo nao repete
   assert.equal(methods(state, "sendPhoto").length, 1);
   assert.equal(state.counts.refund, 1);
   assert.equal(state.counts.collection, 0);
-  assert.equal(methods(state, "sendMessage").length, 2);
+  assert.equal(methods(state, "sendMessage").length, 1);
   assert.equal(state.getSession().stage, "failed");
 });
 
@@ -116,6 +138,22 @@ test("falha cosmética de sendAnimation ainda revela e registra a carta", async 
   assert.equal(state.counts.consume, 1);
   assert.equal(state.counts.refund, 0);
   assert.equal(state.counts.collection, 1);
+  assert.deepEqual(state.delayCalls, [2000]);
+  assert.ok(state.events.indexOf("sendAnimation") < state.events.indexOf("delay"));
+  assert.ok(state.events.indexOf("delay") < state.events.indexOf("sendPhoto"));
+});
+
+test("a transação de consumo terminou antes do delay", async () => {
+  let transactionOpen = false;
+  const state = harness({
+    consumeDart: async () => {
+      transactionOpen = true;
+      transactionOpen = false;
+      return { consumed: true, remainingDarts: 2 };
+    },
+    delay: async () => assert.equal(transactionOpen, false),
+  });
+  await state.handler(query("transaction-closed"), { updateId: 107 });
 });
 
 test("falha da colecao depois da foto nao devolve nem repete", async () => {
@@ -127,7 +165,7 @@ test("falha da colecao depois da foto nao devolve nem repete", async () => {
   assert.equal(state.counts.consume, 1);
   assert.equal(state.counts.refund, 0);
   assert.equal(state.counts.collection, 1);
-  assert.equal(methods(state, "sendMessage").length, 2);
+  assert.equal(methods(state, "sendMessage").length, 1);
 });
 
 test("identifica erros de file_id invalido sem expor o identificador", () => {

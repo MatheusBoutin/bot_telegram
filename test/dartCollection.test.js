@@ -119,7 +119,7 @@ test("model e migration são globais, únicos e protegem o histórico", () => {
 
 test("envio bem-sucedido registra depois da foto; falha devolve antes de qualquer registro", () => {
   const handler = source("src/handlers/dartGameCallbackHandler.js");
-  const send = handler.indexOf('await call("sendPhoto"');
+  const send = handler.indexOf('"sendPhoto"');
   const register = handler.indexOf("await deps.registerObtainedCharacter", send);
   const catchAfterSend = handler.indexOf("await refundOnce()", send);
   assert.ok(send >= 0 && send < register);

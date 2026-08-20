@@ -2,7 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { refreshPlayerForDay, getDartPlayer, consumeDart } = require("../src/services/dartGameService");
+const {
+  refreshPlayerForDay, getDartPlayer, consumeDart, getInitialDarts,
+} = require("../src/services/dartGameService");
 const { sequelize, DartPlayer } = require("../src/database/models");
 
 const read = (relative) => fs.readFileSync(path.join(__dirname, "..", relative), "utf8");
@@ -113,11 +115,20 @@ test("jogador sem marco inicial preserva saldo e inicia o período sem crédito 
   assert.equal(player.dartsAvailable, 3);
 });
 
-test("novo jogador começa com três e já recebe o marco do período atual", () => {
+test("novo jogador recebe o acumulado inclusivo desde 16/08/2026", () => {
   const service = read("src/services/dartGameService.js");
-  const model = read("src/database/models/DartPlayer.js");
-  assert.match(service, /defaults: \{ dartsAvailable: DARTS_PER_DAY, dartsRefreshedOn: getDartDay\(\) \}/);
-  assert.match(model, /defaultValue: DARTS_PER_DAY/);
+  assert.equal(getInitialDarts("2026-08-16"), 3);
+  assert.equal(getInitialDarts("2026-08-17"), 6);
+  assert.equal(getInitialDarts("2026-08-20"), 15);
+  assert.equal(getInitialDarts("2026-08-15"), 0);
+  assert.match(service, /defaults: \{ dartsAvailable: getInitialDarts\(today\), dartsRefreshedOn: today \}/);
+});
+
+test("migration credita aos jogadores existentes os dias anteriores ao cadastro", () => {
+  const migration = read("src/database/migrations/20260820000200-backfill-darts-from-bot-start.js");
+  assert.match(migration, /DARTS_START_DAY = "2026-08-16"/);
+  assert.match(migration, /"createdAt" AT TIME ZONE 'America\/Sao_Paulo'/);
+  assert.match(migration, /"dartsAvailable" = "dartsAvailable" \+/);
 });
 
 test("refresh e consumo permanecem transacionais e protegidos por linha", () => {

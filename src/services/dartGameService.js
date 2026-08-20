@@ -1,5 +1,7 @@
 const { sequelize, DartPlayer, Franchise, DartCharacter } = require("../database/models");
-const { DARTS_PER_DAY, DARTS_TIME_ZONE, DART_RARITY_WEIGHTS } = require("../config/dartGameConfig");
+const {
+  DARTS_PER_DAY, DARTS_START_DAY, DARTS_TIME_ZONE, DART_RARITY_WEIGHTS,
+} = require("../config/dartGameConfig");
 
 function getDartDay(date = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
@@ -16,10 +18,19 @@ function getRenewalCountdown(date = new Date()) {
   return hours > 0 ? `${hours}h${remainder ? ` ${remainder}min` : ""}` : `${remainder}min`;
 }
 
-async function findOrCreateLockedPlayer(userId, transaction) {
+function getInitialDarts(day) {
+  const startDay = Date.parse(`${DARTS_START_DAY}T00:00:00Z`);
+  const targetDay = Date.parse(`${day}T00:00:00Z`);
+  const elapsedDays = Math.floor((targetDay - startDay) / 86_400_000);
+  return Number.isFinite(elapsedDays) && elapsedDays >= 0
+    ? (elapsedDays + 1) * DARTS_PER_DAY
+    : 0;
+}
+
+async function findOrCreateLockedPlayer(userId, transaction, today = getDartDay()) {
   const [player, created] = await DartPlayer.findOrCreate({
     where: { userId },
-    defaults: { dartsAvailable: DARTS_PER_DAY, dartsRefreshedOn: getDartDay() },
+    defaults: { dartsAvailable: getInitialDarts(today), dartsRefreshedOn: today },
     transaction,
   });
   if (!created) await player.reload({ transaction, lock: transaction.LOCK.UPDATE });
@@ -52,8 +63,9 @@ function refreshPlayerForDay(player, today) {
 
 async function getDartPlayer(user, date = new Date()) {
   return sequelize.transaction(async (transaction) => {
-    const player = await findOrCreateLockedPlayer(user.id, transaction);
-    if (refreshPlayerForDay(player, getDartDay(date))) await player.save({ transaction });
+    const today = getDartDay(date);
+    const player = await findOrCreateLockedPlayer(user.id, transaction, today);
+    if (refreshPlayerForDay(player, today)) await player.save({ transaction });
     return player;
   });
 }
@@ -65,8 +77,9 @@ async function refreshDailyDarts(playerOrUser, date = new Date()) {
 
 async function consumeDart(user, date = new Date()) {
   return sequelize.transaction(async (transaction) => {
-    const player = await findOrCreateLockedPlayer(user.id, transaction);
-    refreshPlayerForDay(player, getDartDay(date));
+    const today = getDartDay(date);
+    const player = await findOrCreateLockedPlayer(user.id, transaction, today);
+    refreshPlayerForDay(player, today);
     if (player.dartsAvailable <= 0) {
       await player.save({ transaction });
       return { consumed: false, remainingDarts: 0, player };
@@ -126,5 +139,5 @@ module.exports = {
   getDartDay, getRenewalCountdown, getDartPlayer, refreshDailyDarts, consumeDart, refundDart,
   getPlayableFranchises, chooseWeightedCharacter, drawCharacter, findPlayableFranchise,
   findActiveCharacter,
-  refreshPlayerForDay,
+  refreshPlayerForDay, getInitialDarts,
 };

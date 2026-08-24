@@ -1,8 +1,15 @@
 const { telegramRequest } = require("../telegram");
 const { parseFranchiseName } = require("../services/dartCatalogParser");
-const { createFranchise, listFranchises, countCharacters, listCharacters, findCharacterById, findFranchiseById } = require("../services/dartCatalogService");
+const { createFranchise, listFranchises, countCharacters, listActiveCatalogCharacters } = require("../services/dartCatalogService");
 const { saveCatalogSession } = require("../services/dartCatalogSessionService");
 const { DART_RARITY_LABELS } = require("../config/dartConfig");
+
+const CARD_RARITY_LABELS = Object.freeze({
+  ...DART_RARITY_LABELS,
+  rare: "Rara",
+  epic: "Épica",
+  legendary: "Lendária",
+});
 
 function createFranchiseKeyboard(franchises, action) {
   const rows = [];
@@ -19,6 +26,18 @@ function confirmationKeyboard(type) {
   return { inline_keyboard: [[{ text: "✅ Confirmar exclusão", callback_data: `catalog:archive:${type}:confirm` }, { text: "❌ Cancelar", callback_data: `catalog:archive:${type}:cancel` }]] };
 }
 
+function resolvePublicItem(items, publicNumber) {
+  return items[publicNumber - 1] || null;
+}
+
+function formatCharacterList(cards) {
+  return cards.map((card, index) => `${index + 1} — ${card.name} — ${card.franchise.name} — ${CARD_RARITY_LABELS[card.rarity]}`).join("\n");
+}
+
+function formatFranchiseList(franchises, counts) {
+  return franchises.map((franchise, index) => `${index + 1} — ${franchise.name} — ${counts[index]} ${counts[index] === 1 ? "carta" : "cartas"}`).join("\n");
+}
+
 async function createFranchiseCommand(message, adminUser) {
   const parsed = parseFranchiseName(message.text);
   if (!parsed.ok) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `Como usar:\n/criarfranquia Nome da franquia\n\n${parsed.error}` });
@@ -27,11 +46,10 @@ async function createFranchiseCommand(message, adminUser) {
 }
 
 async function listFranchisesCommand(message) {
-  const franchises = await listFranchises();
-  if (!franchises.length) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Nenhuma franquia foi criada no catálogo global." });
+  const franchises = await listFranchises({ activeOnly: true });
+  if (!franchises.length) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Nenhuma franquia cadastrada." });
   const counts = await Promise.all(franchises.map(({ id }) => countCharacters(id)));
-  const lines = franchises.map((franchise, index) => `ID ${franchise.id} — ${franchise.name} — ${counts[index]} cartas ativas — ${franchise.active ? "ativa" : "arquivada"}`);
-  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `📚 Franquias do catálogo global\n\n${lines.join("\n")}` });
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `📚 Franquias do catálogo global\n\n${formatFranchiseList(franchises, counts)}` });
 }
 
 async function addCharacterCommand(message) {
@@ -41,34 +59,30 @@ async function addCharacterCommand(message) {
 }
 
 async function listCharactersCommand(message) {
-  const archivedOnly = /^\/cartas(?:@\w+)?\s+arquivadas$/iu.test(String(message.text || "").trim());
-  const franchises = await listFranchises();
-  const rows = (await Promise.all(franchises.map(async (franchise) => (await listCharacters(franchise, { active: !archivedOnly })).map((card) => ({ card, franchise }))))).flat();
-  const emptyText = archivedOnly ? "Nenhuma carta arquivada cadastrada." : "Nenhuma carta ativa cadastrada.";
-  const text = rows.length ? rows.map(({ card, franchise }) => `ID ${card.id} — ${card.name} — ${franchise.name} — ${DART_RARITY_LABELS[card.rarity]}`).join("\n") : emptyText;
-  const title = archivedOnly ? "🗄️ Cartas arquivadas" : "🎴 Cartas ativas do catálogo";
-  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `${title}\n\n${text}` });
+  const cards = await listActiveCatalogCharacters();
+  const text = cards.length ? formatCharacterList(cards) : "Nenhuma carta cadastrada.";
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `🎴 Cartas do catálogo\n\n${text}` });
 }
 
 async function deleteCharacterCommand(message, user) {
-  const id = parseNumericId(message.text);
-  if (!id) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Como usar: /excluircarta <ID>\n\nConsulte os IDs em /cartas." });
-  const card = await findCharacterById(id);
-  if (!card) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Carta não encontrada." });
-  if (!card.active) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Esta carta já está arquivada." });
+  const publicNumber = parseNumericId(message.text);
+  if (!publicNumber) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Como usar: /excluircarta <número>\n\nConsulte a numeração em /cartas." });
+  const cards = await listActiveCatalogCharacters();
+  const card = resolvePublicItem(cards, publicNumber);
+  if (!card) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Carta não encontrada. Use /cartas para consultar a numeração atual." });
   saveCatalogSession(message.chat.id, user.id, { stage: "archive_card", characterId: card.id });
-  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `⚠️ Excluir carta do catálogo?\n\nID: ${card.id}\nCarta: ${card.name}\nFranquia: ${card.franchise.name}\nRaridade: ${DART_RARITY_LABELS[card.rarity]}\n\nA carta será removida dos próximos sorteios. Aquisições existentes serão preservadas.`, reply_markup: confirmationKeyboard("card") });
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `⚠️ Remover carta do catálogo?\n\nCarta: ${card.name}\nFranquia: ${card.franchise.name}\n\nA carta será removida dos próximos sorteios. Aquisições existentes serão preservadas.`, reply_markup: confirmationKeyboard("card") });
 }
 
 async function deleteFranchiseCommand(message, user) {
-  const id = parseNumericId(message.text);
-  if (!id) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Como usar: /excluirfranquia <ID>\n\nConsulte os IDs em /franquias." });
-  const franchise = await findFranchiseById(id);
-  if (!franchise) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Franquia não encontrada." });
-  if (!franchise.active) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Esta franquia já está arquivada." });
-  const activeCards = await countCharacters(id);
-  saveCatalogSession(message.chat.id, user.id, { stage: "archive_franchise", franchiseId: id });
-  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `⚠️ Excluir franquia do catálogo?\n\nID: ${id}\nFranquia: ${franchise.name}\nCartas ativas: ${activeCards}\n\nA franquia e suas cartas serão removidas dos próximos sorteios. As coleções existentes serão preservadas.`, reply_markup: confirmationKeyboard("franchise") });
+  const publicNumber = parseNumericId(message.text);
+  if (!publicNumber) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Como usar: /excluirfranquia <número>\n\nConsulte a numeração em /franquias." });
+  const franchises = await listFranchises({ activeOnly: true });
+  const franchise = resolvePublicItem(franchises, publicNumber);
+  if (!franchise) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Franquia não encontrada. Use /franquias para consultar a numeração atual." });
+  const cardCount = await countCharacters(franchise.id);
+  saveCatalogSession(message.chat.id, user.id, { stage: "archive_franchise", franchiseId: franchise.id });
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `⚠️ Remover franquia do catálogo?\n\nFranquia: ${franchise.name}\nCartas: ${cardCount}\n\nA franquia e suas cartas serão removidas dos próximos sorteios. As coleções existentes serão preservadas.`, reply_markup: confirmationKeyboard("franchise") });
 }
 
-module.exports = { createFranchiseCommand, deleteFranchiseCommand, deleteCharacterCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand, createFranchiseKeyboard, parseNumericId };
+module.exports = { createFranchiseCommand, deleteFranchiseCommand, deleteCharacterCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand, createFranchiseKeyboard, parseNumericId, resolvePublicItem, formatCharacterList, formatFranchiseList };

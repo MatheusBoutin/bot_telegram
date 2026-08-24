@@ -56,7 +56,21 @@ async function listFranchises({ activeOnly = false } = {}) {
 
   return Franchise.findAll({
     where,
-    order: [["name", "ASC"]],
+    order: [
+      ["createdAt", "ASC"],
+      ["id", "ASC"],
+    ],
+  });
+}
+
+async function listActiveCatalogCharacters() {
+  return DartCharacter.findAll({
+    where: { active: true },
+    include: [{ model: Franchise, as: "franchise", required: true, where: { active: true } }],
+    order: [
+      ["createdAt", "ASC"],
+      ["id", "ASC"],
+    ],
   });
 }
 
@@ -115,6 +129,7 @@ module.exports = {
   findActiveFranchise,
   countCharacters,
   listCharacters,
+  listActiveCatalogCharacters,
   createDartCharacter,
   findCharacterById,
   findFranchiseById,

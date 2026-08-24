@@ -14,11 +14,10 @@ XP NO GRUPO
 
 /franquias — lista as franquias cadastradas
 /criarfranquia — cadastra uma nova franquia
-/excluirfranquia <ID> — remove uma franquia dos sorteios (somente no privado)
-/cartas — lista as cartas ativas e seus IDs (somente no privado)
-/cartas arquivadas — lista as cartas inativas (somente no privado)
+/excluirfranquia <número> — remove uma franquia dos sorteios (somente no privado)
+/cartas — lista as cartas do catálogo (somente no privado)
 /adicionarcarta — cadastra uma nova carta (somente no privado)
-/excluircarta <ID> — remove uma carta dos sorteios (somente no privado)
+/excluircarta <número> — remove uma carta dos sorteios (somente no privado)
 /colecao — mostra as cartas que você já encontrou
 
 Os comandos de catálogo são exclusivos do owner e administradores globais, exceto /colecao.`;

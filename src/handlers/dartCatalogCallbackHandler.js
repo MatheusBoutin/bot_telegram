@@ -75,14 +75,14 @@ async function archiveCatalogItem(query, user) {
   if (match[1] === "card") {
     const result = await archiveCharacter(session.characterId);
     if (!result) return finishArchiveMessage(query, "Carta não encontrada.");
-    if (!result.changed) return finishArchiveMessage(query, "Esta carta já está arquivada.");
-    return finishArchiveMessage(query, "✅ Carta removida do catálogo.\n\nEla não aparecerá em novos sorteios nem na listagem de cartas ativas.");
+    if (!result.changed) return finishArchiveMessage(query, "A remoção desta carta já foi processada.");
+    return finishArchiveMessage(query, "✅ Carta removida do catálogo.\n\nEla não aparecerá em novos sorteios nem em /cartas.");
   }
   const result = await archiveFranchise(session.franchiseId);
   clearCatalogSessionsForFranchise(session.franchiseId);
   if (!result) return finishArchiveMessage(query, "Franquia não encontrada.");
-  if (!result.changed) return finishArchiveMessage(query, "Esta franquia já está arquivada.");
-  return finishArchiveMessage(query, `✅ Franquia removida do catálogo.\n\n${result.characterCount} cartas foram arquivadas. As aquisições existentes continuam preservadas nas coleções.`);
+  if (!result.changed) return finishArchiveMessage(query, "A remoção desta franquia já foi processada.");
+  return finishArchiveMessage(query, `✅ Franquia removida do catálogo.\n\n${result.characterCount} cartas foram removidas dos sorteios. As aquisições existentes continuam preservadas nas coleções.`);
 }
 
 async function handleDartCatalogCallback(query) {

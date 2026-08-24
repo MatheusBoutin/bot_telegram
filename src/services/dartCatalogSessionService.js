@@ -35,6 +35,13 @@ function clearCatalogSession(chatId, userId) {
   catalogSessions.delete(getSessionKey(chatId, userId));
 }
 
+function takeCatalogSession(chatId, userId, expectedStage) {
+  const session = getCatalogSession(chatId, userId);
+  if (!session || session.stage !== expectedStage) return null;
+  clearCatalogSession(chatId, userId);
+  return session;
+}
+
 function clearCatalogSessionsForFranchise(franchiseId) {
   for (const [key, session] of catalogSessions) {
     if (Number(session.franchiseId) === Number(franchiseId)) catalogSessions.delete(key);
@@ -45,6 +52,7 @@ module.exports = {
   saveCatalogSession,
   getCatalogSession,
   clearCatalogSession,
+  takeCatalogSession,
   getSessionKey,
   clearCatalogSessionsForFranchise,
 };

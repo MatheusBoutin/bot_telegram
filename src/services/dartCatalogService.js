@@ -78,14 +78,11 @@ async function countCharacters(franchiseId) {
   });
 }
 
-async function listCharacters(franchise, { activeOnly = false } = {}) {
+async function listCharacters(franchise, { active = true } = {}) {
   const where = {
     franchiseId: franchise.id,
+    active,
   };
-
-  if (activeOnly) {
-    where.active = true;
-  }
 
   return DartCharacter.findAll({
     where,

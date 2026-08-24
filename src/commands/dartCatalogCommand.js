@@ -41,10 +41,13 @@ async function addCharacterCommand(message) {
 }
 
 async function listCharactersCommand(message) {
+  const archivedOnly = /^\/cartas(?:@\w+)?\s+arquivadas$/iu.test(String(message.text || "").trim());
   const franchises = await listFranchises();
-  const rows = (await Promise.all(franchises.map(async (franchise) => (await listCharacters(franchise)).map((card) => ({ card, franchise }))))).flat();
-  const text = rows.length ? rows.map(({ card, franchise }) => `ID ${card.id} — ${card.name} — ${franchise.name} — ${DART_RARITY_LABELS[card.rarity]} — ${card.active ? "ativa" : "arquivada"}`).join("\n") : "Nenhuma carta cadastrada.";
-  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `🎴 Cartas do catálogo\n\n${text}` });
+  const rows = (await Promise.all(franchises.map(async (franchise) => (await listCharacters(franchise, { active: !archivedOnly })).map((card) => ({ card, franchise }))))).flat();
+  const emptyText = archivedOnly ? "Nenhuma carta arquivada cadastrada." : "Nenhuma carta ativa cadastrada.";
+  const text = rows.length ? rows.map(({ card, franchise }) => `ID ${card.id} — ${card.name} — ${franchise.name} — ${DART_RARITY_LABELS[card.rarity]}`).join("\n") : emptyText;
+  const title = archivedOnly ? "🗄️ Cartas arquivadas" : "🎴 Cartas ativas do catálogo";
+  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `${title}\n\n${text}` });
 }
 
 async function deleteCharacterCommand(message, user) {

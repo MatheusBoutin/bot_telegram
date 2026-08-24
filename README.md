@@ -69,7 +69,7 @@ Outros comandos exclusivos do owner ou de administradores globais:
 
 - `/daradmin ID` e `/removeradmin ID`: concedem ou revogam acesso global; também aceitam resposta a uma mensagem.
 - `/criarfranquia` e `/franquias`: criam e listam franquias.
-- `/adicionarcarta`, `/cartas`, `/excluircarta <ID>` e `/excluirfranquia <ID>`: administram o catálogo com arquivamento lógico; os comandos sensíveis funcionam somente no privado.
+- `/adicionarcarta`, `/cartas`, `/cartas arquivadas`, `/excluircarta <ID>` e `/excluirfranquia <ID>`: administram o catálogo com arquivamento lógico; os comandos sensíveis funcionam somente no privado.
 - `/trocarfoto` e `/trocarnome novo nome`: exclusivos de conversa privada.
 
 `/meuid` mostra o ID do usuário e auxilia a administração global.

@@ -3,11 +3,19 @@ const { getOrCreateUser } = require("../services/userService");
 const { canManageBot } = require("../services/botAdminService");
 const { findActiveFranchise, createDartCharacter, archiveCharacter, archiveFranchise } = require("../services/dartCatalogService");
 const { DART_RARITY_LABELS, DART_RARITY_EMOJIS } = require("../config/dartConfig");
-const { saveCatalogSession, getCatalogSession, clearCatalogSession, clearCatalogSessionsForFranchise } = require("../services/dartCatalogSessionService");
+const { saveCatalogSession, getCatalogSession, clearCatalogSession, takeCatalogSession, clearCatalogSessionsForFranchise } = require("../services/dartCatalogSessionService");
 
 const isCatalogCallback = (query) => query.data?.startsWith("catalog:") || false;
 async function removeKeyboard(query) {
   await telegramRequest("editMessageReplyMarkup", { chat_id: query.message.chat.id, message_id: query.message.message_id, reply_markup: { inline_keyboard: [] } });
+}
+async function finishArchiveMessage(query, text) {
+  await telegramRequest("editMessageText", {
+    chat_id: query.message.chat.id,
+    message_id: query.message.message_id,
+    text,
+    reply_markup: { inline_keyboard: [] },
+  });
 }
 async function startUpload(query, user) {
   const match = query.data.match(/^catalog:add:(\d+)$/);
@@ -52,49 +60,51 @@ async function confirm(query, user) {
 
 async function archiveCatalogItem(query, user) {
   const chatId = query.message.chat.id;
-  if (query.message.chat.type !== "private") return telegramRequest("sendMessage", { chat_id: chatId, text: "Esta confirmação administrativa funciona somente no privado." });
+  if (query.message.chat.type !== "private") return telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Esta confirmação administrativa funciona somente no privado." });
   const match = query.data.match(/^catalog:archive:(card|franchise):(confirm|cancel)$/);
-  if (!match) return;
-  const session = getCatalogSession(chatId, user.id);
+  if (!match) return telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
   const expectedStage = match[1] === "card" ? "archive_card" : "archive_franchise";
-  if (!session || session.stage !== expectedStage) return telegramRequest("sendMessage", { chat_id: chatId, text: "Esta confirmação expirou. Nenhum dado foi alterado." });
+  const session = takeCatalogSession(chatId, user.id, expectedStage);
+  if (!session) return telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Esta exclusão já foi processada." });
   if (match[2] === "cancel") {
-    clearCatalogSession(chatId, user.id); await removeKeyboard(query);
-    return telegramRequest("sendMessage", { chat_id: chatId, text: "Exclusão cancelada. Nenhum dado foi alterado." });
+    await telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
+    return finishArchiveMessage(query, "❌ Exclusão cancelada.");
   }
-  if (!(await canManageBot(user))) { clearCatalogSession(chatId, user.id); return telegramRequest("sendMessage", { chat_id: chatId, text: "Seu acesso administrativo foi removido." }); }
+  if (!(await canManageBot(user))) return telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Seu acesso administrativo foi removido." });
+  await telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
   if (match[1] === "card") {
     const result = await archiveCharacter(session.characterId);
-    clearCatalogSession(chatId, user.id); await removeKeyboard(query);
-    if (!result) return telegramRequest("sendMessage", { chat_id: chatId, text: "Carta não encontrada." });
-    if (!result.changed) return telegramRequest("sendMessage", { chat_id: chatId, text: "Esta carta já está arquivada." });
-    return telegramRequest("sendMessage", { chat_id: chatId, text: "✅ Carta removida do catálogo.\n\nEla não aparecerá em novos sorteios, mas continuará preservada nas coleções existentes como carta arquivada." });
+    if (!result) return finishArchiveMessage(query, "Carta não encontrada.");
+    if (!result.changed) return finishArchiveMessage(query, "Esta carta já está arquivada.");
+    return finishArchiveMessage(query, "✅ Carta removida do catálogo.\n\nEla não aparecerá em novos sorteios nem na listagem de cartas ativas.");
   }
   const result = await archiveFranchise(session.franchiseId);
-  clearCatalogSessionsForFranchise(session.franchiseId); await removeKeyboard(query);
-  if (!result) return telegramRequest("sendMessage", { chat_id: chatId, text: "Franquia não encontrada." });
-  if (!result.changed) return telegramRequest("sendMessage", { chat_id: chatId, text: "Esta franquia já está arquivada." });
-  return telegramRequest("sendMessage", { chat_id: chatId, text: `✅ Franquia removida do catálogo.\n\n${result.characterCount} cartas foram arquivadas. As aquisições existentes continuam preservadas nas coleções.` });
+  clearCatalogSessionsForFranchise(session.franchiseId);
+  if (!result) return finishArchiveMessage(query, "Franquia não encontrada.");
+  if (!result.changed) return finishArchiveMessage(query, "Esta franquia já está arquivada.");
+  return finishArchiveMessage(query, `✅ Franquia removida do catálogo.\n\n${result.characterCount} cartas foram arquivadas. As aquisições existentes continuam preservadas nas coleções.`);
 }
 
 async function handleDartCatalogCallback(query) {
   if (!isCatalogCallback(query)) return false;
-  await telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
   if (!query.message?.chat || !query.from) return true;
   const chatId = query.message.chat.id;
   const user = await getOrCreateUser({ chat: query.message.chat, from: query.from });
   if (!(await canManageBot(user))) {
     clearCatalogSession(chatId, user.id);
-    await telegramRequest("sendMessage", { chat_id: chatId, text: "Este botão exige acesso de administrador global do bot." });
+    await telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Este botão exige acesso de administrador global do bot." });
     return true;
   }
-  if (query.data.startsWith("catalog:add:")) await startUpload(query, user);
-  else if (query.data.startsWith("catalog:archive:")) await archiveCatalogItem(query, user);
-  else if (query.data === "catalog:confirm") await confirm(query, user);
-  else if (query.data === "catalog:cancel") {
-    clearCatalogSession(chatId, user.id);
-    await removeKeyboard(query);
-    await telegramRequest("sendMessage", { chat_id: chatId, text: "Cadastro de carta cancelado." });
+  if (query.data.startsWith("catalog:archive:")) await archiveCatalogItem(query, user);
+  else {
+    await telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
+    if (query.data.startsWith("catalog:add:")) await startUpload(query, user);
+    else if (query.data === "catalog:confirm") await confirm(query, user);
+    else if (query.data === "catalog:cancel") {
+      clearCatalogSession(chatId, user.id);
+      await removeKeyboard(query);
+      await telegramRequest("sendMessage", { chat_id: chatId, text: "Cadastro de carta cancelado." });
+    }
   }
   return true;
 }

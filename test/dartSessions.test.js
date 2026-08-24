@@ -3,6 +3,13 @@ const assert = require("node:assert/strict");
 const game = require("../src/services/dartGameSessionService");
 const catalog = require("../src/services/dartCatalogSessionService");
 
+test("sessão administrativa é consumida uma única vez", () => {
+  catalog.saveCatalogSession(901, 902, { stage: "archive_card", characterId: 77 });
+  assert.equal(catalog.takeCatalogSession(901, 902, "archive_card").characterId, 77);
+  assert.equal(catalog.takeCatalogSession(901, 902, "archive_card"), null);
+  assert.equal(catalog.getCatalogSession(901, 902), null);
+});
+
 test("sessões dos dardos são isoladas por chatId:userId", () => {
   game.saveDartGameSession(10, 5, { marker: "privado" });
   game.saveDartGameSession(20, 5, { marker: "grupo" });

@@ -36,6 +36,13 @@ function clearDartGameSession(chatId, userId) {
   dartGameSessions.delete(getSessionKey(chatId, userId));
 }
 
+function clearDartGameSessionsForChat(chatId) {
+  const prefix = `${chatId}:`;
+  for (const key of dartGameSessions.keys()) {
+    if (key.startsWith(prefix)) dartGameSessions.delete(key);
+  }
+}
+
 function pruneProcessedCallbacks(now = Date.now()) {
   for (const [callbackQueryId, expiresAt] of processedCallbacks) {
     if (expiresAt <= now) processedCallbacks.delete(callbackQueryId);
@@ -63,6 +70,7 @@ module.exports = {
   saveDartGameSession,
   getDartGameSession,
   clearDartGameSession,
+  clearDartGameSessionsForChat,
   getSessionKey,
   hasProcessedDartCallback,
   markDartCallbackProcessed,

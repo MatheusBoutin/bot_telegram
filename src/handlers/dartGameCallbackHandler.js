@@ -126,6 +126,18 @@ function createDartGameCallbackHandler(overrides = {}) {
       return true;
     }
     const chatId = query.message.chat.id;
+    if (query.message.chat.type !== "private") {
+      const ctx = {
+        ...updateContext,
+        callbackQueryId: query.id,
+        chatId,
+        userId: query.from.id,
+      };
+      sessions.clearDartGameSessionsForChat(chatId);
+      await answer(query, ctx, "O acervo agora funciona somente no privado.");
+      await disable(query, ctx);
+      return true;
+    }
     const user = await deps.getOrCreateUser({
       chat: query.message.chat,
       from: query.from,

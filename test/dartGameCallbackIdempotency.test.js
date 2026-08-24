@@ -5,6 +5,7 @@ const path = require("node:path");
 const { createDartGameCallbackHandler, isInvalidTelegramFile } = require("../src/handlers/dartGameCallbackHandler");
 const { CARD_REVEAL_DELAY_MS } = require("../src/config/dartGameConfig");
 const { processUpdateWithRetry } = require("../src/services/pollingService");
+const sessions = require("../src/services/dartGameSessionService");
 
 const query = (id = "callback-1") => ({
   id,
@@ -83,6 +84,35 @@ test("escolha da estante não utiliza o delay da revelação", async () => {
   await state.handler({ ...query("select-shelf"), data: "darts:play:7" }, { updateId: 99 });
   assert.deepEqual(state.delayCalls, []);
   assert.equal(methods(state, "sendPhoto").length, 0);
+});
+
+test("callback antigo de grupo é invalidado antes de criar usuário ou produzir efeitos", async () => {
+  const calls = [];
+  const counts = { user: 0, consume: 0, collection: 0 };
+  sessions.saveDartGameSession(-100, 1, {
+    stage: "shelf_selected",
+    franchiseIds: [7],
+    franchiseId: 7,
+  });
+  const handler = createDartGameCallbackHandler({
+    telegramRequest: async (method, body) => calls.push({ method, body }),
+    getOrCreateUser: async () => { counts.user += 1; return { id: 1 }; },
+    consumeDart: async () => { counts.consume += 1; },
+    registerObtainedCharacter: async () => { counts.collection += 1; },
+  });
+
+  await handler({
+    ...query("old-group-callback"),
+    message: { message_id: 55, chat: { id: -100, type: "supergroup" } },
+  });
+
+  assert.deepEqual(counts, { user: 0, consume: 0, collection: 0 });
+  assert.equal(sessions.getDartGameSession(-100, 1), null);
+  assert.equal(calls.some(({ method }) => method === "sendAnimation" || method === "sendPhoto"), false);
+  assert.ok(calls.some(({ method, body }) =>
+    method === "answerCallbackQuery" && body.text === "O acervo agora funciona somente no privado."));
+  assert.ok(calls.some(({ method, body }) =>
+    method === "editMessageReplyMarkup" && body.reply_markup.inline_keyboard.length === 0));
 });
 
 test("mesmo callback entregue tres vezes nao repete efeitos", async () => {

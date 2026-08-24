@@ -54,7 +54,7 @@ Públicos em grupos:
 - `/rank`: ranking de XP do grupo.
 - `/statusxp`: resumo das regras e estatísticas de XP.
 - `/admliterary`: administradores globais ativos.
-- `/acervo`: explora estantes e encontra cartas; também funciona no privado.
+- `/acervo`: explora estantes e encontra cartas somente no privado.
 - `/colecao`: mostra as cartas encontradas.
 
 Exclusivos do owner ou de administradores globais:

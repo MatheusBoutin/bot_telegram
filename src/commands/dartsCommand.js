@@ -1,6 +1,9 @@
 const { telegramRequest } = require("../telegram");
 const { getDartPlayer, getPlayableFranchises, getRenewalCountdown } = require("../services/dartGameService");
 const { saveDartGameSession } = require("../services/dartGameSessionService");
+const { getBotPrivateUrl } = require("../services/botIdentityService");
+
+const PRIVATE_ONLY_TEXT = "O /acervo funciona somente no privado para não gerar spam no grupo.";
 
 function buildFranchiseKeyboard(playableFranchises) {
   const rows = [];
@@ -37,5 +40,34 @@ async function acervoCommand(message, user) {
   });
 }
 
+async function privateOnlyAcervoNotice(message, overrides = {}) {
+  const request = overrides.telegramRequest || telegramRequest;
+  const resolvePrivateUrl = overrides.getBotPrivateUrl || getBotPrivateUrl;
+  let privateUrl = null;
+  try {
+    privateUrl = await resolvePrivateUrl();
+  } catch {
+    // O aviso ainda é útil quando não é possível consultar a identidade do bot.
+  }
+
+  await request("sendMessage", {
+    chat_id: message.chat.id,
+    text: PRIVATE_ONLY_TEXT,
+    ...(privateUrl
+      ? {
+          reply_markup: {
+            inline_keyboard: [[{ text: "Abrir o acervo", url: privateUrl }]],
+          },
+        }
+      : {}),
+  });
+}
+
 const dartsCommand = acervoCommand;
-module.exports = { acervoCommand, dartsCommand, buildFranchiseKeyboard };
+module.exports = {
+  acervoCommand,
+  dartsCommand,
+  privateOnlyAcervoNotice,
+  buildFranchiseKeyboard,
+  PRIVATE_ONLY_TEXT,
+};

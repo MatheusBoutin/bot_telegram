@@ -1,7 +1,7 @@
 const { telegramRequest } = require("../telegram");
 const { profileCommand } = require("../commands/profileCommand");
 const { rankCommand } = require("../commands/rankCommand");
-const { acervoCommand } = require("../commands/dartsCommand");
+const { acervoCommand, privateOnlyAcervoNotice } = require("../commands/dartsCommand");
 const { collectionCommand } = require("../commands/collectionCommand");
 const { grantXpCommand } = require("../commands/grantXpCommand");
 const { adjustXpCommand } = require("../commands/adjustXpCommand");
@@ -18,7 +18,7 @@ const { getUnlockedTitle } = require("../services/titleService");
 const { getOrCreateUser } = require("../services/userService");
 const { getOrCreateClub } = require("../services/clubService");
 const { getOrCreateClubMember } = require("../services/clubMemberService");
-const { getCommandName } = require("../services/commandService");
+const { getCommandName, getCommandArguments } = require("../services/commandService");
 const { isGroupChat } = require("../services/adminService");
 const { canManageBot } = require("../services/botAdminService");
 const { handleCatalogUpload } = require("../services/dartCatalogUploadService");
@@ -57,6 +57,14 @@ async function handleCatalogCommand(message, user, commandName) {
 async function handleMessage(message) {
   if (!message.from || message.from.is_bot) return;
   const commandName = getCommandName(message.text) || getCommandName(message.caption);
+  const commandArguments = getCommandArguments(message.text || message.caption);
+
+  if (["/acervo", "/dardos"].includes(commandName) && message.chat.type !== "private") {
+    return privateOnlyAcervoNotice(message);
+  }
+  if (commandName === "/start" && commandArguments[0]?.toLowerCase() === "acervo" && message.chat.type === "private") {
+    return startAcervoCommand(message);
+  }
 
   if (isHelpCommand(commandName)) return helpCommand(message);
   if (commandName === "/trocarfoto") return changeBotPhotoCommand(message);
@@ -101,6 +109,11 @@ async function handleMessage(message) {
     if (newTitle) text += `\n\n🏷️ Novo título desbloqueado:\n${newTitle}`;
     await telegramRequest("sendMessage", { chat_id: message.chat.id, text });
   }
+}
+
+async function startAcervoCommand(message) {
+  const user = await getOrCreateUser(message);
+  return acervoCommand(message, user);
 }
 
 module.exports = { handleMessage, handleCatalogCommand, ensureGlobalAdmin };

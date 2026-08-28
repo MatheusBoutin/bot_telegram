@@ -67,7 +67,8 @@ const DartCharacter = sequelize.define(
       {
         unique: true,
         fields: ["franchiseId", "normalizedName"],
-        name: "dart_characters_franchise_normalized_name_unique",
+        where: { active: true },
+        name: "dart_characters_franchise_active_normalized_name_unique",
       },
       {
         fields: ["franchiseId", "active", "rarity"],

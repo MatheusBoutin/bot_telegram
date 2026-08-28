@@ -1,3 +1,4 @@
+const { UniqueConstraintError } = require("sequelize");
 const { sequelize, Franchise, DartCharacter } = require("../database/models");
 
 async function createFranchise({ adminUser, parsedFranchise }) {
@@ -110,6 +111,24 @@ async function listCharacters(franchise, { active = true } = {}) {
 }
 
 async function createDartCharacter({ franchise, adminUser, characterData }) {
+  const duplicate = await DartCharacter.findOne({
+    where: {
+      franchiseId: franchise.id,
+      normalizedName: characterData.normalizedName,
+      active: true,
+    },
+  });
+
+  if (duplicate) {
+    throw new UniqueConstraintError({
+      message: "An active character with this normalized name already exists in the franchise.",
+      fields: {
+        franchiseId: franchise.id,
+        normalizedName: characterData.normalizedName,
+      },
+    });
+  }
+
   return DartCharacter.create({
     franchiseId: franchise.id,
     name: characterData.name,

@@ -6,6 +6,22 @@ const { DART_RARITY_LABELS, DART_RARITY_EMOJIS } = require("../config/dartConfig
 const { saveCatalogSession, getCatalogSession, clearCatalogSession, takeCatalogSession, clearCatalogSessionsForFranchise } = require("../services/dartCatalogSessionService");
 const { sendEditorPreview } = require("../commands/editCharacterCommand");
 
+const EDITING_STAGES = ["editing", "editing_name", "editing_text", "editing_image", "editing_delete"];
+const EDITING_SAVE_IN_PROGRESS = "editing_saving";
+const EDITING_DELETE_IN_PROGRESS = "editing_deleting";
+
+function hasDraftChanges(session) {
+  const originalDraft = session.originalDraft;
+  if (!originalDraft) return true;
+  return ["name", "normalizedName", "description", "rarity", "imageFileId", "imageUniqueId"]
+    .some((field) => session.draft?.[field] !== originalDraft[field]);
+}
+
+async function sendEditError(chatId, operation, error) {
+  const detail = error?.message ? `\n\n${error.message}` : "";
+  await telegramRequest("sendMessage", { chat_id: chatId, text: `❌ Não foi possível ${operation}.${detail}\n\nO rascunho foi mantido. Tente novamente.` });
+}
+
 const isCatalogCallback = (query) => query.data?.startsWith("catalog:") || false;
 async function removeKeyboard(query) {
   await telegramRequest("editMessageReplyMarkup", { chat_id: query.message.chat.id, message_id: query.message.message_id, reply_markup: { inline_keyboard: [] } });
@@ -92,9 +108,14 @@ async function editCallback(query, user) {
   const action = query.data.match(/^catalog:edit:(name|text|image|save|delete|cancel)$/)?.[1];
   if (!action) return false;
   const session = getCatalogSession(chatId, user.id);
-  if (!session || !["editing", "editing_name", "editing_text", "editing_image", "editing_delete"].includes(session.stage)) return telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Esta edição expirou ou já foi finalizada." });
+  if (!session || ![...EDITING_STAGES, EDITING_SAVE_IN_PROGRESS, EDITING_DELETE_IN_PROGRESS].includes(session.stage)) return telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Esta edição expirou ou já foi finalizada." });
   await telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
-  if (action === "cancel") { clearCatalogSession(chatId, user.id); return finishArchiveMessage(query, "❌ Edição cancelada. Nenhuma alteração foi salva."); }
+  if (action === "cancel") {
+    if ([EDITING_SAVE_IN_PROGRESS, EDITING_DELETE_IN_PROGRESS].includes(session.stage)) return telegramRequest("sendMessage", { chat_id: chatId, text: "A operação anterior ainda está em andamento." });
+    clearCatalogSession(chatId, user.id);
+    await removeKeyboard(query);
+    return telegramRequest("sendMessage", { chat_id: chatId, text: "❌ Edição cancelada. Nenhuma alteração foi salva." });
+  }
   if (action === "name" || action === "text" || action === "image") {
     saveCatalogSession(chatId, user.id, { ...session, stage: `editing_${action}` });
     return telegramRequest("sendMessage", { chat_id: chatId, text: action === "name" ? "Envie o novo nome da carta." : action === "text" ? "Envie o novo texto da carta." : "Envie uma nova foto da carta." });
@@ -104,8 +125,23 @@ async function editCallback(query, user) {
     return telegramRequest("editMessageText", { chat_id: chatId, message_id: query.message.message_id, text: "⚠️ Deseja realmente excluir esta carta?", reply_markup: { inline_keyboard: [[{ text: "✅ Confirmar exclusão", callback_data: "catalog:edit:delete_confirm" }, { text: "❌ Voltar", callback_data: "catalog:edit:delete_back" }]] } });
   }
   if (action === "save") {
-    if (session.stage !== "editing") return telegramRequest("sendMessage", { chat_id: chatId, text: "Aguarde a nova informação antes de salvar." });
-    try { const character = await updateDartCharacter({ characterId: session.characterId, characterData: session.draft }); clearCatalogSession(chatId, user.id); if (!character) return finishArchiveMessage(query, "Carta não encontrada."); await finishArchiveMessage(query, "✅ Carta atualizada com sucesso."); const fresh = await findCharacterById(character.id); return sendEditorPreview(chatId, fresh, { ...session.draft }); } catch (error) { if (error.name === "SequelizeUniqueConstraintError") return telegramRequest("sendMessage", { chat_id: chatId, text: "Já existe uma carta com esse nome nessa franquia." }); throw error; }
+    if (session.stage !== "editing") return telegramRequest("sendMessage", { chat_id: chatId, text: session.stage === EDITING_SAVE_IN_PROGRESS ? "Salvamento já está em andamento." : "Aguarde a nova informação antes de salvar." });
+    if (!hasDraftChanges(session)) return telegramRequest("sendMessage", { chat_id: chatId, text: "ℹ️ Nenhuma alteração para salvar." });
+    saveCatalogSession(chatId, user.id, { ...session, stage: EDITING_SAVE_IN_PROGRESS });
+    let character;
+    try {
+      character = await updateDartCharacter({ characterId: session.characterId, characterData: session.draft });
+    } catch (error) {
+      saveCatalogSession(chatId, user.id, { ...session, stage: "editing" });
+      if (error.name === "SequelizeUniqueConstraintError") return telegramRequest("sendMessage", { chat_id: chatId, text: "Já existe uma carta com esse nome nessa franquia. O rascunho foi mantido." });
+      return sendEditError(chatId, "salvar as alterações", error);
+    }
+    if (!character) { saveCatalogSession(chatId, user.id, { ...session, stage: "editing" }); return telegramRequest("sendMessage", { chat_id: chatId, text: "❌ Carta não encontrada. O rascunho foi mantido." }); }
+    clearCatalogSession(chatId, user.id);
+    await removeKeyboard(query);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "✅ Alterações salvas com sucesso!" });
+    const fresh = await findCharacterById(character.id);
+    return sendEditorPreview(chatId, fresh, { ...session.draft });
   }
   return false;
 }
@@ -114,10 +150,22 @@ async function editDeleteCallback(query, user) {
   const chatId = query.message.chat.id;
   const action = query.data.endsWith("_confirm") ? "confirm" : "back";
   const session = getCatalogSession(chatId, user.id);
-  if (!session || session.stage !== "editing_delete") return telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Esta exclusão já foi processada." });
+  if (!session || !["editing_delete", EDITING_DELETE_IN_PROGRESS].includes(session.stage)) return telegramRequest("answerCallbackQuery", { callback_query_id: query.id, text: "Esta exclusão já foi processada." });
   await telegramRequest("answerCallbackQuery", { callback_query_id: query.id });
   if (action === "back") { saveCatalogSession(chatId, user.id, { ...session, stage: "editing" }); const card = await findCharacterById(session.characterId); return sendEditorPreview(chatId, card, session.draft); }
-  const result = await archiveCharacter(session.characterId); clearCatalogSession(chatId, user.id); if (!result || !result.changed) return finishArchiveMessage(query, "A remoção desta carta já foi processada."); return finishArchiveMessage(query, "✅ Carta removida do catálogo.\n\nEla não aparecerá em novos sorteios nem em /cartas.");
+  if (session.stage === EDITING_DELETE_IN_PROGRESS) return telegramRequest("sendMessage", { chat_id: chatId, text: "Exclusão já está em andamento." });
+  saveCatalogSession(chatId, user.id, { ...session, stage: EDITING_DELETE_IN_PROGRESS });
+  let result;
+  try {
+    result = await archiveCharacter(session.characterId);
+  } catch (error) {
+    saveCatalogSession(chatId, user.id, { ...session, stage: "editing_delete" });
+    return sendEditError(chatId, "excluir a carta", error);
+  }
+  if (!result || !result.changed) { saveCatalogSession(chatId, user.id, { ...session, stage: "editing_delete" }); return telegramRequest("sendMessage", { chat_id: chatId, text: "❌ Não foi possível excluir a carta. O rascunho foi mantido." }); }
+  clearCatalogSession(chatId, user.id);
+  await removeKeyboard(query);
+  return telegramRequest("sendMessage", { chat_id: chatId, text: "🗑️ Carta excluída do catálogo com sucesso!" });
 }
 
 async function handleDartCatalogCallback(query) {
@@ -150,4 +198,4 @@ async function handleDartCatalogCallback(query) {
   return true;
 }
 
-module.exports = { handleDartCatalogCallback, isCatalogCallback };
+module.exports = { handleDartCatalogCallback, isCatalogCallback, hasDraftChanges };

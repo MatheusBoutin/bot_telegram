@@ -40,8 +40,9 @@ async function handleCatalogUpload(message, adminUser) {
     const draft = { ...session.draft, ...(session.stage === "editing_name" ? { name: value, normalizedName: normalizeCatalogText(value) } : { description: value }) };
     const card = await findCharacterById(session.characterId);
     if (!card || !card.active) { clearCatalogSession(chatId, adminUser.id); return true; }
-    saveCatalogSession(chatId, adminUser.id, { stage: "editing", characterId: card.id, draft });
+    saveCatalogSession(chatId, adminUser.id, { ...session, stage: "editing", characterId: card.id, draft });
     await sendEditorPreview(chatId, card, draft);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: session.stage === "editing_name" ? "✏️ Nome alterado na prévia. Clique em Salvar alterações para confirmar." : "✏️ Texto alterado na prévia. Clique em Salvar alterações para confirmar." });
     return true;
   }
   if (session.stage === "editing_image") {
@@ -50,8 +51,9 @@ async function handleCatalogUpload(message, adminUser) {
     const draft = { ...session.draft, imageFileId: image.file_id, imageUniqueId: image.file_unique_id || null };
     const card = await findCharacterById(session.characterId);
     if (!card || !card.active) { clearCatalogSession(chatId, adminUser.id); return true; }
-    saveCatalogSession(chatId, adminUser.id, { stage: "editing", characterId: card.id, draft });
+    saveCatalogSession(chatId, adminUser.id, { ...session, stage: "editing", characterId: card.id, draft });
     await sendEditorPreview(chatId, card, draft);
+    await telegramRequest("sendMessage", { chat_id: chatId, text: "🖼️ Imagem alterada na prévia. Clique em Salvar alterações para confirmar." });
     return true;
   }
   if (!Array.isArray(message.photo) || message.photo.length === 0) return false;

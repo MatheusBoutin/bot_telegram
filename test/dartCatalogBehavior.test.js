@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { formatCharacterList, formatFranchiseList, resolvePublicItem } = require("../src/commands/dartCatalogCommand");
+const { hasDraftChanges } = require("../src/handlers/dartCatalogCallbackHandler");
 
 const read = (relative) => fs.readFileSync(path.join(__dirname, "..", relative), "utf8");
 
@@ -63,4 +64,34 @@ test("arquivamento preserva coleções e nenhuma migration renumera IDs", () => 
   const migrations = fs.readdirSync(migrationsPath).map((file) => fs.readFileSync(path.join(migrationsPath, file), "utf8")).join("\n");
   assert.doesNotMatch(service, /\.destroy\(|DartCollectionEntry/);
   assert.doesNotMatch(`${service}\n${migrations}`, /UPDATE\s+dart_characters\s+SET\s+id|ALTER\s+SEQUENCE[^;]+RESTART/is);
+});
+
+test("editor reconhece rascunho sem alterações e alterações reais", () => {
+  const originalDraft = { name: "Violet", normalizedName: "violet", description: "Texto", rarity: "rare", imageFileId: "photo-1", imageUniqueId: "unique-1" };
+  assert.equal(hasDraftChanges({ draft: { ...originalDraft }, originalDraft }), false);
+  assert.equal(hasDraftChanges({ draft: { ...originalDraft, description: "Texto novo" }, originalDraft }), true);
+});
+
+test("editor envia confirmações visíveis para prévia, sucesso, cancelamento e ausência de mudanças", () => {
+  const upload = read("src/services/dartCatalogUploadService.js");
+  const callback = read("src/handlers/dartCatalogCallbackHandler.js");
+  assert.match(upload, /Nome alterado na prévia\. Clique em Salvar alterações para confirmar\./);
+  assert.match(upload, /Texto alterado na prévia\. Clique em Salvar alterações para confirmar\./);
+  assert.match(upload, /Imagem alterada na prévia\. Clique em Salvar alterações para confirmar\./);
+  assert.match(callback, /✅ Alterações salvas com sucesso!/);
+  assert.match(callback, /🗑️ Carta excluída do catálogo com sucesso!/);
+  assert.match(callback, /❌ Edição cancelada\. Nenhuma alteração foi salva\./);
+  assert.match(callback, /ℹ️ Nenhuma alteração para salvar\./);
+  assert.match(callback, /telegramRequest\("sendMessage"/);
+});
+
+test("editor conserva o rascunho em falhas e bloqueia callbacks repetidos", () => {
+  const callback = read("src/handlers/dartCatalogCallbackHandler.js");
+  assert.match(callback, /saveCatalogSession\(chatId, user\.id, \{ \.\.\.session, stage: "editing" \}\)/);
+  assert.match(callback, /saveCatalogSession\(chatId, user\.id, \{ \.\.\.session, stage: "editing_delete" \}\)/);
+  assert.match(callback, /const EDITING_SAVE_IN_PROGRESS = "editing_saving"/);
+  assert.match(callback, /const EDITING_DELETE_IN_PROGRESS = "editing_deleting"/);
+  assert.match(callback, /session\.stage === EDITING_SAVE_IN_PROGRESS/);
+  assert.match(callback, /session\.stage === EDITING_DELETE_IN_PROGRESS/);
+  assert.match(callback, /O rascunho foi mantido/);
 });

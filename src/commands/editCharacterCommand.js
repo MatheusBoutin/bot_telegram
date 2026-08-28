@@ -28,7 +28,7 @@ async function editCharacterCommand(message, user) {
   const card = resolvePublicItem(cards, number);
   if (!card) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Carta não encontrada. Use /cartas para consultar a numeração atual." });
   const draft = { name: card.name, normalizedName: card.normalizedName, description: card.description, rarity: card.rarity, imageFileId: card.imageFileId, imageUniqueId: card.imageUniqueId };
-  saveCatalogSession(message.chat.id, user.id, { stage: "editing", characterId: card.id, draft });
+  saveCatalogSession(message.chat.id, user.id, { stage: "editing", characterId: card.id, draft, originalDraft: { ...draft } });
   return sendEditorPreview(message.chat.id, card, draft);
 }
 

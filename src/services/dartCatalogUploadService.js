@@ -4,6 +4,10 @@ const { parseCharacterCaption } = require("./dartCatalogParser");
 const { findActiveFranchise } = require("./dartCatalogService");
 const { canManageBot } = require("./botAdminService");
 const { getCatalogSession, saveCatalogSession, clearCatalogSession } = require("./dartCatalogSessionService");
+const { findCharacterById } = require("./dartCatalogService");
+const { normalizeCatalogText } = require("./dartCatalogParser");
+const { CHARACTER_NAME_MAX_LENGTH, CHARACTER_DESCRIPTION_MAX_LENGTH } = require("../config/dartConfig");
+const { sendEditorPreview } = require("../commands/editCharacterCommand");
 
 function buildCharacterPreviewCaption(franchise, data) {
   return `🎴 Prévia da carta\n\nFranquia: ${franchise.name}\nNome: ${data.name}\n${DART_RARITY_EMOJIS[data.rarity]} Raridade: ${DART_RARITY_LABELS[data.rarity]}\n\n${data.description}\n\nConfirme ou cancele o cadastro.`;
@@ -23,6 +27,31 @@ async function handleCatalogUpload(message, adminUser) {
   if (command === "/cancelar") {
     clearCatalogSession(chatId, adminUser.id);
     await telegramRequest("sendMessage", { chat_id: chatId, text: "Cadastro de carta cancelado." });
+    return true;
+  }
+  if (session.stage === "editing_name" || session.stage === "editing_text") {
+    if (typeof message.text !== "string" || !message.text.trim()) return true;
+    const value = message.text.trim().replace(/\s+/g, " ");
+    const limit = session.stage === "editing_name" ? CHARACTER_NAME_MAX_LENGTH : CHARACTER_DESCRIPTION_MAX_LENGTH;
+    if (value.length > limit) {
+      await telegramRequest("sendMessage", { chat_id: chatId, text: `O ${session.stage === "editing_name" ? "nome" : "texto"} pode ter no máximo ${limit} caracteres.` });
+      return true;
+    }
+    const draft = { ...session.draft, ...(session.stage === "editing_name" ? { name: value, normalizedName: normalizeCatalogText(value) } : { description: value }) };
+    const card = await findCharacterById(session.characterId);
+    if (!card || !card.active) { clearCatalogSession(chatId, adminUser.id); return true; }
+    saveCatalogSession(chatId, adminUser.id, { stage: "editing", characterId: card.id, draft });
+    await sendEditorPreview(chatId, card, draft);
+    return true;
+  }
+  if (session.stage === "editing_image") {
+    const image = Array.isArray(message.photo) && message.photo.length ? message.photo.at(-1) : (message.document && String(message.document.mime_type || "").startsWith("image/") ? message.document : null);
+    if (!image) return true;
+    const draft = { ...session.draft, imageFileId: image.file_id, imageUniqueId: image.file_unique_id || null };
+    const card = await findCharacterById(session.characterId);
+    if (!card || !card.active) { clearCatalogSession(chatId, adminUser.id); return true; }
+    saveCatalogSession(chatId, adminUser.id, { stage: "editing", characterId: card.id, draft });
+    await sendEditorPreview(chatId, card, draft);
     return true;
   }
   if (!Array.isArray(message.photo) || message.photo.length === 0) return false;

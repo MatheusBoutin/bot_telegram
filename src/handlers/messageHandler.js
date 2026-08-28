@@ -11,6 +11,7 @@ const { adminHelpCommand } = require("../commands/adminHelpCommand.js");
 const { xpStatusCommand } = require("../commands/xpStatusCommand");
 const { helpCommand, isHelpCommand } = require("../commands/helpCommand");
 const { createFranchiseCommand, deleteFranchiseCommand, deleteCharacterCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand } = require("../commands/dartCatalogCommand");
+const { editCharacterCommand } = require("../commands/editCharacterCommand");
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
 const { changeBotPhotoCommand } = require("../commands/changeBotPhotoCommand");
 const { changeBotNameCommand } = require("../commands/changeBotNameCommand");
@@ -24,8 +25,8 @@ const { canManageBot } = require("../services/botAdminService");
 const { handleCatalogUpload } = require("../services/dartCatalogUploadService");
 const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
-const catalogCommands = new Set(["/criarfranquia", "/excluirfranquia", "/excluircarta", "/franquias", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
-const privateCatalogCommands = new Set(["/excluirfranquia", "/excluircarta", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
+const catalogCommands = new Set(["/criarfranquia", "/excluirfranquia", "/excluircarta", "/editarcarta", "/franquias", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
+const privateCatalogCommands = new Set(["/excluirfranquia", "/excluircarta", "/editarcarta", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
 const globalAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
 
 async function ensureGlobalAdmin(message, user) {
@@ -39,7 +40,7 @@ async function ensureGlobalAdmin(message, user) {
 
 async function handleCatalogCommand(message, user, commandName) {
   if (privateCatalogCommands.has(commandName) && message.chat.type !== "private") {
-    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: "Este comando administrativo funciona somente no privado." });
+    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: commandName === "/editarcarta" ? "Este comando funciona somente no privado." : "Este comando administrativo funciona somente no privado." });
     return;
   }
   if (!(await canManageBot(user))) {
@@ -49,6 +50,7 @@ async function handleCatalogCommand(message, user, commandName) {
   if (commandName === "/criarfranquia") await createFranchiseCommand(message, user);
   else if (commandName === "/excluirfranquia") await deleteFranchiseCommand(message, user);
   else if (commandName === "/excluircarta") await deleteCharacterCommand(message, user);
+  else if (commandName === "/editarcarta") await editCharacterCommand(message, user);
   else if (commandName === "/franquias") await listFranchisesCommand(message);
   else if (["/adicionarcarta", "/adicionarpersonagem"].includes(commandName)) await addCharacterCommand(message);
   else if (["/cartas", "/personagens"].includes(commandName)) await listCharactersCommand(message);

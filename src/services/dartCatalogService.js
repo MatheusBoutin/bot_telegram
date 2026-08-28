@@ -1,4 +1,4 @@
-const { UniqueConstraintError } = require("sequelize");
+const { UniqueConstraintError, Op } = require("sequelize");
 const { sequelize, Franchise, DartCharacter } = require("../database/models");
 
 async function createFranchise({ adminUser, parsedFranchise }) {
@@ -142,6 +142,26 @@ async function createDartCharacter({ franchise, adminUser, characterData }) {
   });
 }
 
+async function updateDartCharacter({ characterId, characterData }) {
+  if (!characterData || !characterData.name?.trim() || !characterData.description?.trim() || !characterData.normalizedName || !characterData.imageFileId || !["common", "uncommon", "rare", "epic", "legendary"].includes(characterData.rarity)) {
+    const error = new Error("Invalid character data");
+    error.name = "ValidationError";
+    throw error;
+  }
+  return sequelize.transaction(async (transaction) => {
+    const character = await DartCharacter.findByPk(characterId, { transaction, lock: transaction.LOCK.UPDATE });
+    if (!character || !character.active) return null;
+    const duplicate = await DartCharacter.findOne({
+      where: { franchiseId: character.franchiseId, normalizedName: characterData.normalizedName, active: true, id: { [Op.ne]: character.id } },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (duplicate) throw new UniqueConstraintError({ message: "An active character with this normalized name already exists in the franchise." });
+    await character.update({ name: characterData.name, normalizedName: characterData.normalizedName, description: characterData.description, imageFileId: characterData.imageFileId, imageUniqueId: characterData.imageUniqueId }, { transaction });
+    return character;
+  });
+}
+
 module.exports = {
   createFranchise,
   listFranchises,
@@ -154,4 +174,5 @@ module.exports = {
   findFranchiseById,
   archiveCharacter,
   archiveFranchise,
+  updateDartCharacter,
 };

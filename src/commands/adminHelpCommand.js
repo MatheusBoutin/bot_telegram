@@ -18,6 +18,7 @@ XP NO GRUPO
 /cartas — lista as cartas do catálogo (somente no privado)
 /adicionarcarta — cadastra uma nova carta (somente no privado)
 /excluircarta <número> — remove uma carta dos sorteios (somente no privado)
+/editarcarta <número> — edita nome, texto ou imagem de uma carta (somente no privado)
 /colecao — mostra as cartas que você já encontrou
 
 Os comandos de catálogo são exclusivos do owner e administradores globais, exceto /colecao.`;

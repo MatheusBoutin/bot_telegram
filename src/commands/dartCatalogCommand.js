@@ -4,6 +4,9 @@ const { createFranchise, listFranchises, countCharacters, listActiveCatalogChara
 const { saveCatalogSession } = require("../services/dartCatalogSessionService");
 const { DART_RARITY_LABELS } = require("../config/dartConfig");
 
+const TELEGRAM_TEXT_LIMIT = 4096;
+const CATALOG_ERROR_TEXT = "Não foi possível consultar o catálogo agora. Tente novamente em instantes.";
+
 const CARD_RARITY_LABELS = Object.freeze({
   ...DART_RARITY_LABELS,
   rare: "Rara",
@@ -38,6 +41,37 @@ function formatFranchiseList(franchises, counts) {
   return franchises.map((franchise, index) => `${index + 1} — ${franchise.name} — ${counts[index]} ${counts[index] === 1 ? "carta" : "cartas"}`).join("\n");
 }
 
+function splitCatalogText(text, limit = TELEGRAM_TEXT_LIMIT) {
+  const lines = String(text).split("\n");
+  const chunks = [];
+  let current = "";
+
+  for (const line of lines) {
+    const candidate = current ? `${current}\n${line}` : line;
+    if (current && candidate.length > limit) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = candidate;
+    }
+  }
+
+  if (current || !chunks.length) chunks.push(current);
+  return chunks;
+}
+
+async function sendCatalogMessages(message, text) {
+  for (const chunk of splitCatalogText(text)) {
+    try {
+      await telegramRequest("sendMessage", { chat_id: message.chat.id, text: chunk });
+    } catch (error) {
+      console.error("Erro ao enviar resposta do /cartas:", error);
+      return false;
+    }
+  }
+  return true;
+}
+
 async function createFranchiseCommand(message, adminUser) {
   const parsed = parseFranchiseName(message.text);
   if (!parsed.ok) return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `Como usar:\n/criarfranquia Nome da franquia\n\n${parsed.error}` });
@@ -59,9 +93,16 @@ async function addCharacterCommand(message) {
 }
 
 async function listCharactersCommand(message) {
-  const cards = await listActiveCatalogCharacters();
+  let cards;
+  try {
+    cards = await listActiveCatalogCharacters();
+  } catch (error) {
+    console.error("Erro ao consultar cartas do catálogo:", error);
+    return sendCatalogMessages(message, CATALOG_ERROR_TEXT);
+  }
+
   const text = cards.length ? formatCharacterList(cards) : "Nenhuma carta cadastrada.";
-  return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `🎴 Cartas do catálogo\n\n${text}` });
+  return sendCatalogMessages(message, `🎴 Cartas do catálogo\n\n${text}`);
 }
 
 async function deleteCharacterCommand(message, user) {
@@ -85,4 +126,4 @@ async function deleteFranchiseCommand(message, user) {
   return telegramRequest("sendMessage", { chat_id: message.chat.id, text: `⚠️ Remover franquia do catálogo?\n\nFranquia: ${franchise.name}\nCartas: ${cardCount}\n\nA franquia e suas cartas serão removidas dos próximos sorteios. As coleções existentes serão preservadas.`, reply_markup: confirmationKeyboard("franchise") });
 }
 
-module.exports = { createFranchiseCommand, deleteFranchiseCommand, deleteCharacterCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand, createFranchiseKeyboard, parseNumericId, resolvePublicItem, formatCharacterList, formatFranchiseList };
+module.exports = { createFranchiseCommand, deleteFranchiseCommand, deleteCharacterCommand, listFranchisesCommand, addCharacterCommand, listCharactersCommand, createFranchiseKeyboard, parseNumericId, resolvePublicItem, formatCharacterList, formatFranchiseList, splitCatalogText };

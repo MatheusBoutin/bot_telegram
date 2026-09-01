@@ -28,6 +28,9 @@ const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 const catalogCommands = new Set(["/criarfranquia", "/excluirfranquia", "/excluircarta", "/editarcarta", "/franquias", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
 const privateCatalogCommands = new Set(["/excluirfranquia", "/excluircarta", "/editarcarta", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
 const globalAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
+const groupOnlyCommands = new Set(["/literaryxp", "/rank", "/statusxp", "/admliterary"]);
+
+const GROUP_ONLY_NOTICE = " Este comando só pode ser usado em grupos.";
 
 async function ensureGlobalAdmin(message, user) {
   if (await canManageBot(user)) return true;
@@ -60,6 +63,11 @@ async function handleMessage(message) {
   if (!message.from || message.from.is_bot) return;
   const commandName = getCommandName(message.text) || getCommandName(message.caption);
   const commandArguments = getCommandArguments(message.text || message.caption);
+
+  if (groupOnlyCommands.has(commandName) && !isGroupChat(message.chat)) {
+    await telegramRequest("sendMessage", { chat_id: message.chat.id, text: GROUP_ONLY_NOTICE });
+    return;
+  }
 
   if (["/acervo", "/dardos"].includes(commandName) && message.chat.type !== "private") {
     return privateOnlyAcervoNotice(message);
@@ -118,4 +126,4 @@ async function startAcervoCommand(message) {
   return acervoCommand(message, user);
 }
 
-module.exports = { handleMessage, handleCatalogCommand, ensureGlobalAdmin };
+module.exports = { handleMessage, handleCatalogCommand, ensureGlobalAdmin, GROUP_ONLY_NOTICE };

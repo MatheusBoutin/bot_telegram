@@ -9,13 +9,13 @@ Você recebe três explorações por dia. As explorações não utilizadas ficam
 
 /colecao — veja as cartas que você já encontrou
 
-/literaryxp — mostra seu XP, nível e título
+/literaryxp — mostra seu XP, nível e título (somente em grupos)
 
-/rank — mostra o ranking de XP do grupo
+/rank — mostra o ranking de XP do grupo (somente em grupos)
 
-/statusxp — mostra as regras de XP
+/statusxp — mostra o status do sistema de XP (somente em grupos)
 
-/admliterary — mostra os administradores do bot
+/admliterary — mostra os administradores do grupo (somente em grupos)
 
 /ajuda — abre este guia`;
 

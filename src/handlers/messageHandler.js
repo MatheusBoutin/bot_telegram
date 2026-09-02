@@ -15,6 +15,7 @@ const { editCharacterCommand } = require("../commands/editCharacterCommand");
 const { meuidCommand, grantAdminCommand, removeAdminCommand, listAdminsCommand } = require("../commands/botAdminCommand");
 const { changeBotPhotoCommand } = require("../commands/changeBotPhotoCommand");
 const { changeBotNameCommand } = require("../commands/changeBotNameCommand");
+const { grantDartsCommand } = require("../commands/grantDartsCommand");
 const { getUnlockedTitle } = require("../services/titleService");
 const { getOrCreateUser } = require("../services/userService");
 const { getOrCreateClub } = require("../services/clubService");
@@ -27,7 +28,7 @@ const { isValidXpMessage, canGainXp, addXp } = require("../services/xpService");
 
 const catalogCommands = new Set(["/criarfranquia", "/excluirfranquia", "/excluircarta", "/editarcarta", "/franquias", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
 const privateCatalogCommands = new Set(["/excluirfranquia", "/excluircarta", "/editarcarta", "/adicionarcarta", "/adicionarpersonagem", "/cartas", "/personagens"]);
-const globalAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm"]);
+const globalAdminCommands = new Set(["/darxp", "/ajustarxp", "/historico", "/desfazerxp", "/comandosadm", "/daracervos"]);
 const groupOnlyCommands = new Set(["/literaryxp", "/rank", "/statusxp", "/admliterary"]);
 
 const GROUP_ONLY_NOTICE = " Este comando só pode ser usado em grupos.";
@@ -59,7 +60,7 @@ async function handleCatalogCommand(message, user, commandName) {
   else if (["/cartas", "/personagens"].includes(commandName)) await listCharactersCommand(message);
 }
 
-async function handleMessage(message) {
+async function handleMessage(message, updateId = message.update_id) {
   if (!message.from || message.from.is_bot) return;
   const commandName = getCommandName(message.text) || getCommandName(message.caption);
   const commandArguments = getCommandArguments(message.text || message.caption);
@@ -86,6 +87,14 @@ async function handleMessage(message) {
   if (commandName === "/meuid") return meuidCommand(message);
   if (commandName === "/daradmin") return grantAdminCommand(message, user);
   if (commandName === "/removeradmin") return removeAdminCommand(message, user);
+  if (commandName === "/daracervos") {
+    if (!(await ensureGlobalAdmin(message, user))) return;
+    return grantDartsCommand(message, user, updateId);
+  }
+  if (commandName === "/comandosadm" && !isGroupChat(message.chat)) {
+    if (!(await ensureGlobalAdmin(message, user))) return;
+    return adminHelpCommand(message);
+  }
   if (catalogCommands.has(commandName)) return handleCatalogCommand(message, user, commandName);
 
   if (await handleCatalogUpload(message, user)) return;

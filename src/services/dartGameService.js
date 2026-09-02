@@ -129,4 +129,5 @@ module.exports = {
   getPlayableFranchises, chooseWeightedCharacter, drawCharacter, findPlayableFranchise,
   findActiveCharacter,
   refreshPlayerForDay,
+  findOrCreateLockedPlayer,
 };

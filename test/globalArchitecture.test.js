@@ -16,8 +16,8 @@ test("nenhum período completo preserva qualquer saldo existente", () => {
   }
 });
 
-test("um período adiciona três ao saldo em vez de redefini-lo", () => {
-  for (const [current, expected] of [[0, 3], [2, 5], [16, 19], [17, 20]]) {
+test("um período adiciona dez ao saldo em vez de redefini-lo", () => {
+  for (const [current, expected] of [[0, 10], [2, 12], [16, 26], [17, 27]]) {
     const player = { dartsAvailable: current, dartsRefreshedOn: "2026-08-14" };
     assert.equal(refreshPlayerForDay(player, "2026-08-15"), true);
     assert.equal(player.dartsAvailable, expected);
@@ -26,7 +26,7 @@ test("um período adiciona três ao saldo em vez de redefini-lo", () => {
 });
 
 test("todos os períodos ausentes são creditados sem teto", () => {
-  for (const [current, days, expected] of [[5, 2, 11], [0, 4, 12], [0, 6, 18]]) {
+  for (const [current, days, expected] of [[5, 2, 25], [0, 4, 40], [0, 6, 60]]) {
     const player = { dartsAvailable: current, dartsRefreshedOn: "2026-08-14" };
     const target = new Date(Date.UTC(2026, 7, 14 + days)).toISOString().slice(0, 10);
     assert.equal(refreshPlayerForDay(player, target), true);
@@ -39,7 +39,7 @@ test("o mesmo período não recebe crédito duas vezes", () => {
   const player = { dartsAvailable: 2, dartsRefreshedOn: "2026-08-14" };
   assert.equal(refreshPlayerForDay(player, "2026-08-15"), true);
   assert.equal(refreshPlayerForDay(player, "2026-08-15"), false);
-  assert.equal(player.dartsAvailable, 5);
+  assert.equal(player.dartsAvailable, 12);
 });
 
 async function withLockedPlayer(player, action) {
@@ -75,7 +75,7 @@ test("refresh simultâneo concede cada período uma única vez", async () => {
     const date = new Date("2026-08-15T12:00:00-03:00");
     await Promise.all([getDartPlayer({ id: 1 }, date), getDartPlayer({ id: 1 }, date)]);
   });
-  assert.equal(player.dartsAvailable, 5);
+  assert.equal(player.dartsAvailable, 12);
 });
 
 test("consumo simultâneo ao refresh preserva o total correto", async () => {
@@ -84,7 +84,7 @@ test("consumo simultâneo ao refresh preserva o total correto", async () => {
     const date = new Date("2026-08-15T12:00:00-03:00");
     await Promise.all([getDartPlayer({ id: 1 }, date), consumeDart({ id: 1 }, date)]);
   });
-  assert.equal(player.dartsAvailable, 4);
+  assert.equal(player.dartsAvailable, 11);
 });
 
 test("consumo reduz exatamente uma exploração acumulada", async () => {
@@ -101,24 +101,24 @@ test("fração do período atual não é creditada nem adia a próxima renovaç�
   assert.equal(refreshPlayerForDay(player, "2026-08-14"), false);
   assert.equal(player.dartsRefreshedOn, "2026-08-14");
   assert.equal(refreshPlayerForDay(player, "2026-08-15"), true);
-  assert.equal(player.dartsAvailable, 5);
+  assert.equal(player.dartsAvailable, 12);
   assert.equal(player.dartsRefreshedOn, "2026-08-15");
 });
 
 test("jogador sem marco inicial preserva saldo e inicia o período sem crédito duplicado", () => {
-  const player = { dartsAvailable: 3, dartsRefreshedOn: null };
+  const player = { dartsAvailable: 10, dartsRefreshedOn: null };
   assert.equal(refreshPlayerForDay(player, "2026-08-15"), true);
-  assert.equal(player.dartsAvailable, 3);
+  assert.equal(player.dartsAvailable, 10);
   assert.equal(refreshPlayerForDay(player, "2026-08-15"), false);
-  assert.equal(player.dartsAvailable, 3);
+  assert.equal(player.dartsAvailable, 10);
 });
 
-test("novo jogador começa com três sem crédito retroativo", () => {
+test("novo jogador começa com dez sem crédito retroativo", () => {
   const service = read("src/services/dartGameService.js");
   assert.match(service, /defaults: \{ dartsAvailable: DARTS_PER_DAY, dartsRefreshedOn: today \}/);
 });
 
-test("migration reinicia todos com três na data da aplicação", () => {
+test("migration histórica permanece imutável", () => {
   const migration = read("src/database/migrations/20260820000300-reset-daily-darts.js");
   assert.match(migration, /const DARTS_PER_DAY = 3/);
   assert.match(migration, /SET "dartsAvailable" = \$\{DARTS_PER_DAY\}/);
@@ -139,7 +139,7 @@ test("mensagens do acervo descrevem saldo acumulável", () => {
   const help = read("src/commands/helpCommand.js");
   assert.doesNotMatch(`${command}\n${callback}`, /explorações (?:disponíveis |restantes )?hoje/i);
   assert.doesNotMatch(`${command}\n${callback}`, /encerrou suas explorações por hoje/i);
-  assert.match(help, /três explorações por dia/i);
+  assert.match(help, /dez explorações por dia/i);
   assert.match(help, /não utilizadas ficam acumuladas/i);
 });
 

@@ -8,6 +8,7 @@ const { DartCharacter } = require("./DartCharacter");
 const { BotAdmin } = require("./BotAdmin");
 const { DartPlayer } = require("./DartPlayer");
 const { DartCollectionEntry } = require("./DartCollectionEntry");
+const { DartGrant } = require("./DartGrant");
 
 User.hasMany(ClubMember, {
   foreignKey: "userId",
@@ -71,6 +72,8 @@ XpTransaction.hasOne(XpTransaction, {
 
 User.hasOne(DartPlayer, { foreignKey: "userId", as: "dartPlayer" });
 DartPlayer.belongsTo(User, { foreignKey: "userId", as: "user" });
+User.hasMany(DartGrant, { foreignKey: "userId", as: "dartGrants" });
+DartGrant.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 User.hasMany(DartCollectionEntry, { foreignKey: "userId", as: "dartCollectionEntries" });
 DartCollectionEntry.belongsTo(User, { foreignKey: "userId", as: "user" });
@@ -123,4 +126,5 @@ module.exports = {
   BotAdmin,
   DartPlayer,
   DartCollectionEntry,
+  DartGrant,
 };

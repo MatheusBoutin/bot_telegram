@@ -4,7 +4,7 @@ const { handleCallbackQuery } = require("./callbackQueryHandler");
 
 async function handleUpdate(update) {
   if (update.message) {
-    await handleMessage(update.message);
+    await handleMessage(update.message, update.update_id);
     return;
   }
 

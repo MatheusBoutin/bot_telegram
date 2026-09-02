@@ -12,6 +12,8 @@ XP NO GRUPO
 
 📚 CATÁLOGO E ACERVO
 
+/daracervos <quantidade> [motivo] — responde a um usuário e adiciona explorações ao saldo dele
+
 /franquias — lista as franquias cadastradas
 /criarfranquia — cadastra uma nova franquia
 /excluirfranquia <número> — remove uma franquia dos sorteios (somente no privado)
@@ -20,6 +22,9 @@ XP NO GRUPO
 /excluircarta <número> — remove uma carta dos sorteios (somente no privado)
 /editarcarta <número> — edita nome, texto ou imagem de uma carta (somente no privado)
 /colecao — mostra as cartas que você já encontrou
+
+No privado, owner e administradores globais também podem usar:
+/daracervos <telegramId> <quantidade> [motivo]
 
 Os comandos de catálogo são exclusivos do owner e administradores globais, exceto /colecao.`;
 

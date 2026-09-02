@@ -1,4 +1,4 @@
-const DARTS_PER_DAY = 3;
+const DARTS_PER_DAY = 10;
 
 const DARTS_TIME_ZONE = "America/Sao_Paulo";
 

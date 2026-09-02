@@ -5,7 +5,7 @@ const HELP_COMMANDS = new Set(["/ajuda", "/help", "/start"]);
 const HELP_TEXT = `✨ Guia de comandos
 
 /acervo — explore o acervo no privado
-Você recebe três explorações por dia. As explorações não utilizadas ficam acumuladas.
+Você recebe dez explorações por dia. As explorações não utilizadas ficam acumuladas.
 
 /colecao — veja as cartas que você já encontrou
 
